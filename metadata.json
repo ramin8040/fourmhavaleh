@@ -1,0 +1,6 @@
+{
+  "name": "WinForm Studio Pro",
+  "description": "نرم‌افزار دسکتاپ ویندوز برای صدور، ثبت، بایگانی و چاپ رسمی انواع حواله خروج محصول، رسید کالا، رسید تعمیرات و اسناد انبارداری",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}

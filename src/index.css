@@ -1,0 +1,117 @@
+@import "tailwindcss";
+
+@custom-variant dark (&:where(.dark, .dark *));
+
+@layer base {
+  * {
+    box-sizing: border-box;
+  }
+  
+  /* Modern Windows 11 style scrollbars */
+  ::-webkit-scrollbar {
+    width: 6px;
+    height: 6px;
+  }
+  ::-webkit-scrollbar-track {
+    background: transparent;
+  }
+  ::-webkit-scrollbar-thumb {
+    background: rgba(140, 140, 140, 0.35);
+    border-radius: 9999px;
+  }
+  ::-webkit-scrollbar-thumb:hover {
+    background: rgba(100, 100, 100, 0.6);
+  }
+
+  .dark ::-webkit-scrollbar-thumb {
+    background: rgba(180, 180, 180, 0.25);
+  }
+  .dark ::-webkit-scrollbar-thumb:hover {
+    background: rgba(220, 220, 220, 0.45);
+  }
+}
+
+/* Designer grid background */
+.designer-grid-pattern {
+  background-size: 20px 20px;
+  background-image: 
+    linear-gradient(to right, rgba(0, 0, 0, 0.05) 1px, transparent 1px),
+    linear-gradient(to bottom, rgba(0, 0, 0, 0.05) 1px, transparent 1px);
+}
+
+.dark .designer-grid-pattern {
+  background-size: 20px 20px;
+  background-image: 
+    linear-gradient(to right, rgba(255, 255, 255, 0.05) 1px, transparent 1px),
+    linear-gradient(to bottom, rgba(255, 255, 255, 0.05) 1px, transparent 1px);
+}
+
+.designer-grid-dots {
+  background-size: 16px 16px;
+  background-image: radial-gradient(circle, rgba(0, 0, 0, 0.12) 1px, transparent 1px);
+}
+
+.dark .designer-grid-dots {
+  background-size: 16px 16px;
+  background-image: radial-gradient(circle, rgba(255, 255, 255, 0.15) 1px, transparent 1px);
+}
+
+/* Print Specific Rules */
+@media screen {
+  #official-print-document {
+    display: none !important;
+  }
+  .print-only {
+    display: none !important;
+  }
+}
+
+@media print {
+  @page {
+    margin: 5mm 8mm;
+    size: auto;
+  }
+
+  html, body {
+    background: white !important;
+    color: black !important;
+    overflow: visible !important;
+    height: auto !important;
+    width: 100% !important;
+    padding: 0 !important;
+    margin: 0 !important;
+    color-scheme: light !important;
+  }
+
+  /* Completely hide all UI Chrome & dev controls */
+  #app-root-container,
+  .no-print,
+  dialog,
+  nav,
+  header,
+  footer,
+  aside,
+  button,
+  .fixed:not(#official-print-document *) {
+    display: none !important;
+  }
+
+  /* Show only official printable document */
+  #official-print-document {
+    display: block !important;
+    position: relative !important;
+    width: 100% !important;
+    margin: 0 auto !important;
+    padding: 0 !important;
+    background: white !important;
+    color: black !important;
+    overflow: visible !important;
+    -webkit-print-color-adjust: exact !important;
+    print-color-adjust: exact !important;
+  }
+
+  #official-print-document * {
+    -webkit-print-color-adjust: exact !important;
+    print-color-adjust: exact !important;
+  }
+}
