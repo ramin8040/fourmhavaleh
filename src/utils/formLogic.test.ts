@@ -8,8 +8,9 @@ import {
   generateRecordNumber,
   generateCsvExport,
   filterFormRecords,
+  extractRecordPreviewData,
 } from './formLogic';
-import { FormRecord } from '../types/form';
+import { FormRecord, FormTemplate } from '../types/form';
 
 test('toPersianDigits converts digits correctly', () => {
   assert.equal(toPersianDigits('12345'), '۱۲۳۴۵');
@@ -216,4 +217,72 @@ test('dynamic table column manipulation and custom fields', () => {
   const removed = withCustom.filter((c) => c.id !== 'col_warranty');
   assert.equal(removed.length, 5);
 });
+
+test('extractRecordPreviewData summarizes header, counterparty, fields, items, and signatures cleanly', () => {
+  const tpl: FormTemplate = {
+    id: 'preset_dispatch_voucher',
+    title: 'حواله خروج محصول',
+    description: 'حواله رسمی',
+    category: 'انبار',
+    paperSize: 'A4',
+    orientation: 'landscape',
+    createdAt: '2026-11-01T00:00:00.000Z',
+    updatedAt: '2026-11-01T00:00:00.000Z',
+    fields: [
+      { id: 'hdr', type: 'header_banner', label: 'سربرگ', headerTitle: 'حواله خروج محصول', formCode: 'AW-ST-FO-008', width: '100%' },
+      { id: 'f_driver', type: 'text', label: 'نام راننده', width: '50%' },
+      { id: 'f_plate', type: 'text', label: 'پلاک خودرو', width: '50%' },
+      { id: 'tbl', type: 'table', label: 'جدول کالا', width: '100%' },
+    ],
+  };
+
+  const rec: FormRecord = {
+    id: 'rec-preview-1',
+    formId: 'preset_dispatch_voucher',
+    recordNumber: 'DOC-1405-0042',
+    createdAt: '2026-11-02T10:00:00.000Z',
+    updatedAt: '2026-11-02T10:00:00.000Z',
+    status: 'finalized',
+    data: {
+      f_doc_no: '۴۲',
+      f_doc_date: '1405/08/11',
+      f_customer: 'شرکت پتروشیمی پارس',
+      f_driver: 'حسین محمدی',
+      f_plate: '۱۲ ع ۳۴۵ ایران ۶۶',
+    },
+    tableData: {
+      tbl: [
+        { id: '1', rowNumber: 1, productCode: 'K-10', description: 'مانیتور صنعتی ۲۴ اینچ', quantity: 3, unit: 'دستگاه', unitPrice: 10000000, totalPrice: 30000000, serialNumber: 'SN-101' },
+        { id: '2', rowNumber: 2, productCode: 'K-11', description: 'پاور سوئیچینگ ۲۴ ولت', quantity: 2, unit: 'عدد', unitPrice: 2500000, totalPrice: 5000000 },
+        { id: '3', rowNumber: 3, productCode: 'K-12', description: 'کابل کنترل شیلددار', quantity: 10, unit: 'متر' },
+        { id: '4', rowNumber: 4, productCode: 'K-13', description: 'رله صنعتی ۴ کنتاکت', quantity: 5, unit: 'عدد' },
+        { id: '5', rowNumber: 5, productCode: 'K-14', description: 'ترمینال ریلی', quantity: 20, unit: 'عدد' },
+        { id: '6', rowNumber: 6, productCode: 'K-15', description: 'داکت کابل ۴ در ۴', quantity: 4, unit: 'شاخه' },
+        { id: '7', rowNumber: 7, productCode: '', description: '', quantity: 0 }, // empty trailing row should be ignored
+      ],
+    },
+    signatureData: {
+      sig_0: 'data:image/png;base64,AAA',
+      sig_1: '',
+      sig_2: 'data:image/png;base64,BBB',
+    },
+  };
+
+  const preview = extractRecordPreviewData(rec, tpl);
+  assert.equal(preview.title, 'حواله خروج محصول');
+  assert.equal(preview.formCode, 'AW-ST-FO-008');
+  assert.equal(preview.docNumber, '۴۲');
+  assert.equal(preview.docDate, '1405/08/11');
+  assert.equal(preview.counterparty, 'شرکت پتروشیمی پارس');
+  assert.equal(preview.statusLabel, 'ثبت نهایی');
+  assert.equal(preview.fields.length, 2);
+  assert.equal(preview.fields[0].label, 'نام راننده');
+  assert.equal(preview.totalItemsCount, 6);
+  assert.equal(preview.items.length, 5);
+  assert.equal(preview.remainingItemsCount, 1);
+  assert.equal(preview.totalQuantity, 44);
+  assert.equal(preview.totalAmount, 35000000);
+  assert.equal(preview.signedCount, 2);
+});
+
 

@@ -109,56 +109,58 @@ export const TemplatesModal: React.FC<TemplatesModalProps> = ({
   };
 
   return (
-    <div className="fixed inset-0 z-50 bg-black/50 dark:bg-black/70 backdrop-blur-xs flex items-center justify-center p-4 select-none">
-      <div className="bg-white dark:bg-[#202020] rounded-lg shadow-2xl border border-slate-300 dark:border-[#383838] w-full max-w-4xl max-h-[90vh] overflow-hidden text-slate-800 dark:text-slate-100 flex flex-col transition-colors">
+    <div className="fixed inset-0 z-50 bg-slate-950/45 backdrop-blur-sm flex items-center justify-center p-4 select-none">
+      <div className="liquid-glass-elevated rounded-3xl w-full max-w-4xl max-h-[90vh] overflow-hidden text-slate-900 dark:text-slate-100 flex flex-col transition-colors">
         {/* Header */}
-        <div className="flex items-center justify-between px-5 py-3.5 border-b border-slate-200 dark:border-[#2d2d2d] bg-[#f9fafb] dark:bg-[#1a1a1a]">
-          <div className="flex items-center gap-2.5 font-bold text-sm">
-            <div className="w-7 h-7 rounded bg-blue-50 dark:bg-blue-950/60 text-[#0067C0] dark:text-[#4cc2ff] flex items-center justify-center border border-blue-200 dark:border-blue-800">
+        <div className="flex items-center justify-between px-4 sm:px-6 py-3.5 border-b border-slate-300/40 dark:border-white/10 bg-white/40 dark:bg-slate-900/40 gap-2">
+          <div className="flex items-center gap-2.5 font-bold text-sm min-w-0">
+            <div className="w-8 h-8 rounded-xl liquid-cta flex items-center justify-center shrink-0">
               <LayoutDashboard className="w-4 h-4" />
             </div>
-            <div>
-              <span className="text-slate-900 dark:text-slate-100 font-bold">مدیریت و انتخاب قالب‌های فرم</span>
-              <span className="text-[11px] font-normal text-slate-500 dark:text-slate-400 mr-2">
-                (امکان انتخاب، ویرایش کامل ساختار، تغییر مشخصات و حذف قالب‌ها)
+            <div className="min-w-0">
+              <span className="text-slate-900 dark:text-white font-bold block sm:inline truncate">
+                مدیریت و انتخاب برگه‌ها
+              </span>
+              <span className="hidden sm:inline text-xs font-normal text-slate-600 dark:text-slate-300 mr-2">
+                · انتخاب، ویرایش یا ساخت برگه جدید
               </span>
             </div>
           </div>
           <button
             onClick={onClose}
-            className="p-1 rounded hover:bg-slate-200 dark:hover:bg-white/10 text-slate-500 dark:text-slate-400 transition-colors"
+            className="p-2 rounded-xl hover:bg-white/75 dark:hover:bg-white/10 text-slate-500 dark:text-slate-300 transition-colors shrink-0 cursor-pointer"
           >
             <X className="w-4 h-4" />
           </button>
         </div>
 
         {/* Toolbar: Search, Category Filters, New Template Button */}
-        <div className="p-3.5 border-b border-slate-200 dark:border-[#2d2d2d] bg-slate-50 dark:bg-[#1f1f1f] flex flex-wrap items-center justify-between gap-3 text-xs">
+        <div className="p-3 sm:p-3.5 border-b border-slate-200 dark:border-[#2d2d2d] bg-slate-50 dark:bg-[#1f1f1f] flex flex-wrap items-center justify-between gap-2.5 sm:gap-3 text-xs">
           {/* Search box */}
-          <div className="relative min-w-[240px] flex-1 max-w-md">
+          <div className="relative w-full sm:flex-1 sm:min-w-[220px] sm:max-w-md">
             <input
               type="text"
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
               placeholder="جستجو در نام فرم، توضیحات یا دسته‌بندی..."
-              className="w-full pr-8 pl-3 py-1.5 bg-white dark:bg-[#2b2b2b] border border-slate-300 dark:border-[#404040] rounded text-xs text-slate-800 dark:text-slate-100 outline-none focus:border-[#0067C0] dark:focus:border-[#4cc2ff]"
+              className="w-full pr-8 pl-3 py-2 sm:py-1.5 bg-white dark:bg-[#2b2b2b] border border-slate-300 dark:border-[#404040] rounded text-xs text-slate-800 dark:text-slate-100 outline-none focus:border-[#0067C0] dark:focus:border-[#4cc2ff]"
             />
             <Search className="w-3.5 h-3.5 text-slate-400 dark:text-slate-500 absolute right-2.5 top-2.5" />
           </div>
 
           {/* Action buttons */}
-          <div className="flex items-center gap-2">
+          <div className="flex flex-wrap items-center gap-2 w-full sm:w-auto">
             {onOpenImageToForm && (
               <button
                 onClick={() => {
                   onClose();
                   onOpenImageToForm();
                 }}
-                className="flex items-center gap-1.5 px-3 py-1.5 bg-linear-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700 text-white text-xs font-semibold rounded shadow-xs transition-colors"
+                className="flex-1 sm:flex-initial flex items-center justify-center gap-1.5 px-3 py-2 sm:py-1.5 bg-linear-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700 text-white text-xs font-semibold rounded shadow-xs transition-colors whitespace-nowrap"
                 title="بارگذاری تصویر حواله یا رسید و تبدیل خودکار به قالب با هوش مصنوعی"
               >
                 <Sparkles className="w-3.5 h-3.5 text-amber-300" />
-                <span>تبدیل عکس به قالب (هوش مصنوعی)</span>
+                <span>تبدیل عکس به قالب</span>
               </button>
             )}
 
@@ -167,10 +169,10 @@ export const TemplatesModal: React.FC<TemplatesModalProps> = ({
                 onCreateNewTemplate();
                 onClose();
               }}
-              className="flex items-center gap-1.5 px-3 py-1.5 bg-white dark:bg-[#2b2b2b] hover:bg-slate-100 dark:hover:bg-[#333] text-slate-800 dark:text-slate-100 border border-slate-300 dark:border-[#444] text-xs font-medium rounded shadow-xs transition-colors"
+              className="flex-1 sm:flex-initial flex items-center justify-center gap-1.5 px-3 py-2 sm:py-1.5 bg-white dark:bg-[#2b2b2b] hover:bg-slate-100 dark:hover:bg-[#333] text-slate-800 dark:text-slate-100 border border-slate-300 dark:border-[#444] text-xs font-medium rounded shadow-xs transition-colors whitespace-nowrap"
             >
               <PlusCircle className="w-3.5 h-3.5 text-blue-600 dark:text-[#4cc2ff]" />
-              <span>ایجاد بوم سفید جدید</span>
+              <span>ایجاد بوم سفید</span>
             </button>
           </div>
         </div>
@@ -329,7 +331,7 @@ export const TemplatesModal: React.FC<TemplatesModalProps> = ({
         </div>
 
         {/* Footer with Reset to Defaults and Close */}
-        <div className="flex items-center justify-between px-5 py-3 border-t border-slate-200 dark:border-[#2d2d2d] bg-[#f9fafb] dark:bg-[#1a1a1a] text-xs">
+        <div className="flex flex-wrap items-center justify-between gap-2 px-4 sm:px-5 py-3 border-t border-slate-200 dark:border-[#2d2d2d] bg-[#f9fafb] dark:bg-[#1a1a1a] text-xs">
           <button
             onClick={() => {
               if (confirm('آیا مایلید تمام قالب‌ها به فهرست پیش‌فرض اولیه (شامل تمام فرم‌های رسمی آیریا ونداد کسری) بازنشانی شوند؟')) {
@@ -339,8 +341,8 @@ export const TemplatesModal: React.FC<TemplatesModalProps> = ({
             className="flex items-center gap-1.5 text-slate-500 dark:text-slate-400 hover:text-slate-800 dark:hover:text-slate-200 transition-colors px-2 py-1 rounded hover:bg-slate-200/60 dark:hover:bg-[#2b2b2b]"
             title="بازنشانی تمام قالب‌های سیستم به حالت کارخانه"
           >
-            <RotateCcw className="w-3.5 h-3.5" />
-            <span>بازنشانی به قالب‌های پیش‌فرض کارخانه</span>
+            <RotateCcw className="w-3.5 h-3.5 shrink-0" />
+            <span>بازنشانی پیش‌فرض کارخانه</span>
           </button>
 
           <button

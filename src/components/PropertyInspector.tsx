@@ -30,6 +30,8 @@ import {
   Minus
 } from 'lucide-react';
 import { toPersianDigits } from '../utils/formLogic';
+import { ExcelTableStylePanel } from './ExcelTableStylePanel';
+import { CompanyLogoControls } from './CompanyLogoControls';
 
 interface PropertyInspectorProps {
   field: FormField | null;
@@ -38,6 +40,8 @@ interface PropertyInspectorProps {
   onDuplicateField: (field: FormField) => void;
   onMoveField: (id: string, direction: 'up' | 'down') => void;
   onClose: () => void;
+  isMobileOpen?: boolean;
+  onCloseMobile?: () => void;
 }
 
 export const PropertyInspector: React.FC<PropertyInspectorProps> = ({
@@ -47,16 +51,32 @@ export const PropertyInspector: React.FC<PropertyInspectorProps> = ({
   onDuplicateField,
   onMoveField,
   onClose,
+  isMobileOpen = false,
+  onCloseMobile,
 }) => {
-  const [activeTab, setActiveTab] = useState<'settings' | 'columns'>('settings');
+  const [activeTab, setActiveTab] = useState<'settings' | 'style' | 'columns'>('settings');
+
+  const drawerClass = `fixed inset-y-0 left-0 z-40 w-80 max-w-[88vw] lg:static lg:relative lg:z-auto liquid-glass-elevated border-r border-white/60 dark:border-white/10 flex flex-col shrink-0 select-none shadow-2xl lg:shadow-none transition-transform duration-200 lg:translate-x-0 lg:pointer-events-auto ${
+    isMobileOpen ? 'translate-x-0 pointer-events-auto' : '-translate-x-full pointer-events-none'
+  }`;
 
   if (!field) {
     return (
-      <aside className="w-80 bg-[#fbfbfc] dark:bg-[#202020] border-r border-[#d1d5db] dark:border-[#2d2d2d] flex flex-col shrink-0 select-none p-4 text-center justify-center text-slate-400 dark:text-slate-500 transition-colors">
-        <Sliders className="w-8 h-8 mx-auto mb-2 text-slate-300 dark:text-slate-600" />
-        <span className="text-xs font-medium text-slate-600 dark:text-slate-300">هیچ المانی انتخاب نشده است</span>
-        <span className="text-[11px] text-slate-400 dark:text-slate-500 mt-1">
-          برای ویرایش مشخصات، ستون‌های جدول و تنظیمات دقیق، روی هر یک از فیلدهای داخل برگه کلیک کنید.
+      <aside className={`${drawerClass} p-5 text-center justify-center text-slate-500 dark:text-slate-400`}>
+        {onCloseMobile && (
+          <button
+            type="button"
+            onClick={onCloseMobile}
+            aria-label="بستن پنل تنظیمات"
+            className="lg:hidden absolute top-3 left-3 p-1.5 rounded-xl text-slate-500 hover:bg-white/75 dark:hover:bg-white/10"
+          >
+            <X className="w-4 h-4" />
+          </button>
+        )}
+        <Sliders className="w-8 h-8 mx-auto mb-2.5 text-slate-400 dark:text-slate-500" />
+        <span className="text-xs font-bold text-slate-700 dark:text-slate-200">هیچ بخشی انتخاب نشده است</span>
+        <span className="text-[11px] text-slate-500 dark:text-slate-400 mt-1 leading-relaxed">
+          روی هر بخش از برگه بزنید تا بتوانید اسم، اندازه یا ستون‌هایش را عوض کنید.
         </span>
       </aside>
     );
@@ -190,7 +210,7 @@ export const PropertyInspector: React.FC<PropertyInspectorProps> = ({
   };
 
   return (
-    <aside className="w-80 bg-[#fbfbfc] dark:bg-[#202020] border-r border-[#d1d5db] dark:border-[#2d2d2d] flex flex-col shrink-0 select-none overflow-y-auto transition-colors">
+    <aside className={`${drawerClass} overflow-y-auto`}>
       {/* Inspector Header */}
       <div className="p-3 border-b border-[#e5e7eb] dark:border-[#2d2d2d] bg-[#f3f4f6] dark:bg-[#1a1a1a] flex items-center justify-between sticky top-0 z-10 backdrop-blur-md">
         <div className="flex items-center gap-2 min-w-0">
@@ -255,26 +275,39 @@ export const PropertyInspector: React.FC<PropertyInspectorProps> = ({
       {/* Tabs if Table */}
       {field.type === 'table' && (
         <div className="px-3 pt-3">
-          <div className="flex border-b border-slate-200 dark:border-[#383838] text-xs">
+          <div className="grid grid-cols-3 border-b border-slate-200 dark:border-[#383838] text-[11px]">
             <button
+              type="button"
               onClick={() => setActiveTab('settings')}
-              className={`flex-1 pb-1.5 font-medium transition-colors text-center ${
+              className={`pb-1.5 font-medium transition-colors text-center cursor-pointer ${
                 activeTab === 'settings'
                   ? 'border-b-2 border-[#0067C0] dark:border-[#4cc2ff] text-[#0067C0] dark:text-[#4cc2ff] font-bold'
                   : 'text-slate-500 hover:text-slate-800 dark:text-slate-400 dark:hover:text-slate-200'
               }`}
             >
-              تنظیمات عمومی و ردیف‌ها
+              عمومی و ردیف‌ها
             </button>
             <button
+              type="button"
+              onClick={() => setActiveTab('style')}
+              className={`pb-1.5 font-medium transition-colors text-center cursor-pointer ${
+                activeTab === 'style'
+                  ? 'border-b-2 border-[#0067C0] dark:border-[#4cc2ff] text-[#0067C0] dark:text-[#4cc2ff] font-bold'
+                  : 'text-slate-500 hover:text-slate-800 dark:text-slate-400 dark:hover:text-slate-200'
+              }`}
+            >
+              خطوط و رنگ (اکسل)
+            </button>
+            <button
+              type="button"
               onClick={() => setActiveTab('columns')}
-              className={`flex-1 pb-1.5 font-medium transition-colors text-center ${
+              className={`pb-1.5 font-medium transition-colors text-center cursor-pointer ${
                 activeTab === 'columns'
                   ? 'border-b-2 border-[#0067C0] dark:border-[#4cc2ff] text-[#0067C0] dark:text-[#4cc2ff] font-bold'
                   : 'text-slate-500 hover:text-slate-800 dark:text-slate-400 dark:hover:text-slate-200'
               }`}
             >
-              مدیریت ستون‌ها ({toPersianDigits(getColumns().length)})
+              ستون‌ها ({toPersianDigits(getColumns().length)})
             </button>
           </div>
         </div>
@@ -282,6 +315,17 @@ export const PropertyInspector: React.FC<PropertyInspectorProps> = ({
 
       {/* Content Form */}
       <div className="p-3 space-y-4 text-xs">
+        {/* ========================================================
+            TAB: EXCEL TABLE BORDERS, COLORS & STYLE
+            ======================================================== */}
+        {field.type === 'table' && activeTab === 'style' && (
+          <ExcelTableStylePanel
+            field={field}
+            columns={getColumns()}
+            onUpdateField={onUpdateField}
+          />
+        )}
+
         {/* ========================================================
             TAB: TABLE COLUMNS MANAGER
             ======================================================== */}
@@ -1025,8 +1069,13 @@ export const PropertyInspector: React.FC<PropertyInspectorProps> = ({
               <div className="space-y-3 pt-2 border-t border-slate-200 dark:border-slate-700">
                 <span className="font-semibold text-slate-800 dark:text-slate-200 flex items-center gap-1.5 text-[11px]">
                   <Building2 className="w-3.5 h-3.5 text-[#0067C0] dark:text-[#4cc2ff]" />
-                  اطلاعات سربرگ و هویت سازمانی:
+                  اطلاعات سربرگ و لوگوی شرکت:
                 </span>
+
+                <CompanyLogoControls
+                  headerField={field}
+                  onUpdateHeaderField={onUpdateField}
+                />
 
                 <div className="space-y-1">
                   <label className="text-slate-600 dark:text-slate-400">نوع سربرگ:</label>

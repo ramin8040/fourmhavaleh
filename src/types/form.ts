@@ -14,13 +14,67 @@ export type FieldType =
 
 export type FieldWidth = '100%' | '75%' | '66%' | '50%' | '33%' | '25%';
 
+export type TableBorderLineStyle = 'solid' | 'dashed' | 'dotted' | 'double' | 'none';
+
+export interface TableRowHighlightStyle {
+  bgColor?: string;
+  textColor?: string;
+  bold?: boolean;
+}
+
+export interface TableStyleConfig {
+  presetId?: string;
+  // Borders (Excel Format Cells -> Border)
+  outerBorderStyle?: TableBorderLineStyle;
+  outerBorderWidth?: 0 | 1 | 2 | 3;
+  outerBorderColor?: string;
+  horizontalGridStyle?: TableBorderLineStyle;
+  horizontalGridWidth?: 0 | 1 | 2 | 3;
+  horizontalGridColor?: string;
+  verticalGridStyle?: TableBorderLineStyle;
+  verticalGridWidth?: 0 | 1 | 2 | 3;
+  verticalGridColor?: string;
+  headerBottomBorderStyle?: TableBorderLineStyle;
+  headerBottomBorderWidth?: 0 | 1 | 2 | 3;
+  headerBottomBorderColor?: string;
+  // Header Row
+  headerBgColor?: string;
+  headerTextColor?: string;
+  headerBold?: boolean;
+  headerFontSize?: 'xs' | 'sm' | 'base';
+  headerAlign?: 'inherit' | 'right' | 'center' | 'left';
+  // Rows & Banding (Excel Table Style Options)
+  zebraRows?: boolean;
+  oddRowBgColor?: string;
+  evenRowBgColor?: string;
+  bandedColumns?: boolean;
+  bandedColumnBgColor?: string;
+  highlightFirstColumn?: boolean;
+  highlightLastColumn?: boolean;
+  textColor?: string;
+  fontSize?: 'xs' | 'sm' | 'base';
+  cellPadding?: 'compact' | 'normal' | 'relaxed';
+  // Per-row highlights (1-indexed row number -> style)
+  rowHighlights?: Record<number, TableRowHighlightStyle>;
+  // Summary Footer Row
+  summaryBgColor?: string;
+  summaryTextColor?: string;
+}
+
 export interface TableColumn {
   id: string;
   title: string;
   type: 'text' | 'number' | 'currency';
   width?: string;
+  widthPercent?: number;
   align?: 'right' | 'center' | 'left';
   isFormula?: boolean;
+  // Per-column Excel styling
+  bgColor?: string;
+  textColor?: string;
+  bold?: boolean;
+  headerBgColor?: string;
+  headerTextColor?: string;
 }
 
 export interface TableItemRow {
@@ -72,6 +126,7 @@ export interface FormField {
   discountAmount?: number;
   tableBorderThickness?: 'normal' | 'thick'; // for official thick lines like AW-St-FO-008
   showTableWords?: boolean;
+  tableStyle?: TableStyleConfig;
   
   // Specific for Header Banner / Logo
   companyName?: string;
@@ -83,6 +138,10 @@ export interface FormField {
   registrationNumber?: string;
   nationalId?: string;
   logoUrl?: string;
+  logoMode?: 'custom' | 'default_awox' | 'none';
+  logoSize?: 'sm' | 'md' | 'lg';
+  logoPosition?: 'left' | 'right' | 'center';
+  showCompanySubName?: boolean;
   formCode?: string; // e.g. AW-ST-FO-008
   documentNumber?: string; // e.g. 1, 2, 4, 7
   headerDate?: string; // e.g. 1405/01/15

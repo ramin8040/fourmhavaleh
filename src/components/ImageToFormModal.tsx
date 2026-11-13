@@ -239,40 +239,37 @@ export const ImageToFormModal: React.FC<ImageToFormModalProps> = ({
   if (!isOpen) return null;
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-xs select-none">
-      <div 
-        className="w-full max-w-4xl max-h-[92vh] bg-white dark:bg-[#1f1f20] border border-slate-300 dark:border-[#383838] rounded-xl shadow-2xl flex flex-col overflow-hidden text-right transition-colors"
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-950/45 backdrop-blur-sm select-none">
+      <div
+        className="w-full max-w-4xl max-h-[92vh] liquid-glass-elevated rounded-3xl flex flex-col overflow-hidden text-right transition-colors"
         dir="rtl"
       >
         {/* Modal Title Bar */}
-        <div className="flex items-center justify-between px-5 py-3.5 border-b border-slate-200 dark:border-[#2d2d2d] bg-[#f8fafc] dark:bg-[#181819]">
-          <div className="flex items-center gap-2.5">
-            <div className="w-8 h-8 rounded-lg bg-linear-to-br from-[#0067C0] to-indigo-600 flex items-center justify-center text-white shadow-xs">
+        <div className="flex items-center justify-between px-4 sm:px-6 py-3.5 border-b border-slate-300/40 dark:border-white/10 bg-white/40 dark:bg-slate-900/40 gap-2">
+          <div className="flex items-center gap-2.5 min-w-0">
+            <div className="w-9 h-9 rounded-2xl liquid-cta flex items-center justify-center text-white shrink-0">
               <Sparkles className="w-4 h-4" />
             </div>
-            <div>
-              <h2 className="text-sm font-bold text-slate-800 dark:text-slate-100 flex items-center gap-1.5">
-                <span>تبدیل هوشمند تصویر به فرم قابل صدور و ویرایش</span>
-                <span className="text-[10px] bg-blue-100 dark:bg-blue-950/70 text-[#0067C0] dark:text-[#4cc2ff] px-2 py-0.5 rounded-full font-semibold border border-blue-200 dark:border-blue-800">
-                  مبتنی بر هوش مصنوعی (Vision)
-                </span>
+            <div className="min-w-0">
+              <h2 className="text-xs sm:text-sm font-bold text-slate-900 dark:text-white truncate">
+                ساخت برگه از روی عکس
               </h2>
-              <p className="text-[11px] text-slate-500 dark:text-slate-400">
-                تصویر هر نوع حواله انبار، رسید کالا، فرم چاپی یا اسکن‌شده را بدهید تا فوراً به فرم دیجیتال، قابل تایپ و چاپ رسمی تبدیل شود.
+              <p className="hidden sm:block text-xs text-slate-600 dark:text-slate-300 truncate">
+                عکس برگه یا رسید خودتان را بگذارید تا شبیه همان برایتان ساخته شود.
               </p>
             </div>
           </div>
           <button
             onClick={handleClose}
             disabled={isProcessing}
-            className="p-1.5 rounded-lg text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 hover:bg-slate-100 dark:hover:bg-[#2c2c2e] transition-colors"
+            className="p-2 rounded-xl text-slate-500 hover:text-slate-900 dark:hover:text-white hover:bg-white/75 dark:hover:bg-white/10 transition-colors shrink-0 cursor-pointer"
           >
             <X className="w-4 h-4" />
           </button>
         </div>
 
         {/* Modal Body */}
-        <div className="flex-1 overflow-y-auto p-5 space-y-5">
+        <div className="flex-1 overflow-y-auto p-3.5 sm:p-5 space-y-4 sm:space-y-5">
           {error && (
             <div className="p-3 bg-red-50 dark:bg-red-950/40 border border-red-200 dark:border-red-900/50 rounded-lg flex items-center gap-2 text-xs text-red-700 dark:text-red-300">
               <AlertCircle className="w-4 h-4 shrink-0" />
@@ -282,12 +279,12 @@ export const ImageToFormModal: React.FC<ImageToFormModalProps> = ({
 
           {/* Preset Sample Gallery */}
           <div>
-            <div className="flex items-center justify-between mb-2">
+            <div className="flex flex-wrap items-center justify-between gap-1.5 mb-2">
               <label className="text-xs font-bold text-slate-700 dark:text-slate-300 flex items-center gap-1.5">
-                <LayoutTemplate className="w-3.5 h-3.5 text-[#0067C0] dark:text-[#4cc2ff]" />
-                <span>نمونه‌های آماده اسناد شرکت آریا ونداد کسری (کد AW-ST-FO-008):</span>
+                <LayoutTemplate className="w-3.5 h-3.5 text-[#0067C0] dark:text-[#4cc2ff] shrink-0" />
+                <span>نمونه‌های آماده اسناد (AW-ST-FO-008):</span>
               </label>
-              <span className="text-[10px] text-slate-400">یک نمونه را انتخاب کنید یا تصویر دلخواه خود را آپلود فرمایید</span>
+              <span className="hidden sm:inline text-[10px] text-slate-400">یک نمونه را انتخاب کنید یا تصویر دلخواه خود را آپلود فرمایید</span>
             </div>
             <div className="grid grid-cols-2 sm:grid-cols-4 gap-2.5">
               {PRESET_SAMPLES.map((sample) => {
@@ -545,9 +542,9 @@ export const ImageToFormModal: React.FC<ImageToFormModalProps> = ({
         </div>
 
         {/* Modal Footer */}
-        <div className="px-5 py-3 border-t border-slate-200 dark:border-[#2d2d2d] bg-[#f8fafc] dark:bg-[#181819] flex items-center justify-between">
+        <div className="px-4 sm:px-5 py-3 border-t border-slate-200 dark:border-[#2d2d2d] bg-[#f8fafc] dark:bg-[#181819] flex flex-wrap items-center justify-between gap-2">
           <div className="text-[11px] text-slate-500 dark:text-slate-400 flex items-center gap-1">
-            <span>فرمت‌های پشتیبانی‌شده: PNG, JPG, WEBP | اسناد افقی (Landscape) و عمودی (Portrait)</span>
+            <span>فرمت‌ها: PNG, JPG, WEBP</span>
           </div>
 
           <div className="flex items-center gap-2">

@@ -40,41 +40,41 @@ export const KeyboardShortcutsModal: React.FC<KeyboardShortcutsModalProps> = ({
 
   return (
     <div
-      className="fixed inset-0 z-50 bg-black/50 backdrop-blur-sm flex items-center justify-center p-4 animate-in fade-in duration-150"
+      className="fixed inset-0 z-50 bg-slate-950/45 backdrop-blur-sm flex items-center justify-center p-4"
       onClick={onClose}
     >
       <div
-        className="bg-white dark:bg-[#1f2430] w-full max-w-2xl rounded-2xl shadow-2xl border border-gray-200 dark:border-gray-700 overflow-hidden flex flex-col max-h-[85vh]"
+        className="liquid-glass-elevated w-full max-w-2xl rounded-3xl overflow-hidden flex flex-col max-h-[85vh]"
         onClick={(e) => e.stopPropagation()}
         dir="rtl"
       >
         {/* Modal Header */}
-        <div className="flex items-center justify-between px-6 py-4 border-b border-gray-200 dark:border-gray-800 bg-gradient-to-r from-blue-50 to-indigo-50/50 dark:from-slate-800/80 dark:to-slate-800/40">
+        <div className="flex items-center justify-between px-6 py-4 border-b border-slate-300/40 dark:border-white/10 bg-white/40 dark:bg-slate-900/40">
           <div className="flex items-center gap-3">
-            <div className="w-10 h-10 rounded-xl bg-blue-600 text-white flex items-center justify-center shadow-md shadow-blue-500/20">
+            <div className="w-10 h-10 rounded-2xl liquid-cta text-white flex items-center justify-center">
               <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v1m6 11h2m-6 0h-2v4m0-11v3m0 0h.01M12 12h4.01M16 20h4M4 12h4m12 0h.01M5 8h2a1 1 0 001-1V5a1 1 0 00-1-1H5a1 1 0 00-1 1v2a1 1 0 001 1zm12 0h2a1 1 0 001-1V5a1 1 0 00-1-1h-2a1 1 0 00-1 1v2a1 1 0 001 1zM5 20h2a1 1 0 001-1v-2a1 1 0 00-1-1H5a1 1 0 00-1 1v2a1 1 0 001 1z" />
               </svg>
             </div>
             <div>
-              <h2 className="text-base font-bold text-gray-900 dark:text-white">
-                کلیدهای میانبر نرم‌افزار
+              <h2 className="text-base font-bold text-slate-900 dark:text-white">
+                کلیدهای میانبر
               </h2>
-              <p className="text-xs text-gray-500 dark:text-gray-400">
-                تسریع در ثبت اسناد، صدور حواله، پرینت و ناوبری با صفحه‌کلید
+              <p className="text-xs text-slate-600 dark:text-slate-300">
+                برای کار سریع‌تر با صفحه‌کلید
               </p>
             </div>
           </div>
           <button
             onClick={onClose}
-            className="w-8 h-8 rounded-lg flex items-center justify-center text-gray-400 hover:text-gray-600 dark:hover:text-gray-200 hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors"
+            className="w-8 h-8 rounded-xl flex items-center justify-center text-slate-500 hover:text-slate-900 dark:hover:text-white hover:bg-white/60 dark:hover:bg-slate-800/60 transition-colors cursor-pointer"
           >
             ✕
           </button>
         </div>
 
         {/* Modal Body */}
-        <div className="p-6 overflow-y-auto space-y-6">
+        <div className="p-4 sm:p-6 overflow-y-auto space-y-5 sm:space-y-6">
           {categories.map((cat) => {
             const items = SHORTCUTS.filter((s) => s.category === cat);
             return (
@@ -87,12 +87,12 @@ export const KeyboardShortcutsModal: React.FC<KeyboardShortcutsModalProps> = ({
                   {items.map((item, idx) => (
                     <div
                       key={idx}
-                      className="flex items-center justify-between p-2.5 rounded-xl bg-gray-50 dark:bg-gray-800/60 border border-gray-200/60 dark:border-gray-700/60 hover:border-blue-300 dark:hover:border-blue-600 transition-colors"
+                      className="flex items-center justify-between gap-2 p-2.5 rounded-xl bg-gray-50 dark:bg-gray-800/60 border border-gray-200/60 dark:border-gray-700/60 hover:border-blue-300 dark:hover:border-blue-600 transition-colors"
                     >
                       <span className="text-xs text-gray-700 dark:text-gray-300">
                         {item.description}
                       </span>
-                      <div className="flex items-center gap-1 ltr" dir="ltr">
+                      <div className="flex items-center gap-1 ltr shrink-0" dir="ltr">
                         {item.keys.map((k, kIdx) => (
                           <React.Fragment key={kIdx}>
                             <kbd className="px-2 py-0.5 text-[11px] font-mono font-semibold bg-white dark:bg-gray-900 text-gray-800 dark:text-gray-200 rounded border border-gray-300 dark:border-gray-600 shadow-sm">
@@ -124,7 +124,7 @@ export const KeyboardShortcutsModal: React.FC<KeyboardShortcutsModalProps> = ({
         </div>
 
         {/* Modal Footer */}
-        <div className="px-6 py-3 bg-gray-50 dark:bg-gray-900/60 border-t border-gray-200 dark:border-gray-800 flex items-center justify-between">
+        <div className="px-4 sm:px-6 py-3 bg-gray-50 dark:bg-gray-900/60 border-t border-gray-200 dark:border-gray-800 flex flex-wrap items-center justify-between gap-2">
           <span className="text-[11px] text-gray-500 dark:text-gray-400">
             با زدن کلید <kbd className="px-1.5 py-0.5 bg-gray-200 dark:bg-gray-800 rounded text-[10px]">Esc</kbd> می‌توانید پنجره را ببندید
           </span>

@@ -9,6 +9,13 @@ import {
   formatCurrency, 
   calculateTableSummary 
 } from '../utils/formLogic';
+import { resolveHeaderLogo } from '../utils/companyBrand';
+import {
+  resolveTableStyle,
+  getTableWrapperStyle,
+  getHeaderCellCssStyle,
+  getBodyCellCssStyle,
+} from '../utils/tableStyling';
 
 interface OfficialPrintDocumentProps {
   template: FormTemplate;
@@ -16,6 +23,7 @@ interface OfficialPrintDocumentProps {
   tableData: Record<string, TableItemRow[]>;
   signatureData: Record<string, string>;
   printSettings?: PrintSettings;
+  embeddedPreview?: boolean;
 }
 
 export const OfficialPrintDocument: React.FC<OfficialPrintDocumentProps> = ({
@@ -24,6 +32,7 @@ export const OfficialPrintDocument: React.FC<OfficialPrintDocumentProps> = ({
   tableData,
   signatureData,
   printSettings,
+  embeddedPreview = false,
 }) => {
   const isBlankMode = printSettings?.printMode === 'blank';
   const effectiveFormData = isBlankMode ? {} : formData;
@@ -42,6 +51,32 @@ export const OfficialPrintDocument: React.FC<OfficialPrintDocumentProps> = ({
   // Find signature field
   const signatureField = template.fields.find((f) => f.type === 'signature');
 
+  // Collect custom / metadata non-table fields to show cleanly on official print
+  const extraFields: Array<{ label: string; value: string }> = [];
+  if (!isBlankMode) {
+    if (effectiveFormData['customerName']) {
+      extraFields.push({ label: 'طرف حساب / مشتری', value: String(effectiveFormData['customerName']) });
+    }
+    if (effectiveFormData['letterNumber']) {
+      extraFields.push({ label: 'شماره نامه / عطف', value: toPersianDigits(String(effectiveFormData['letterNumber'])) });
+    }
+    for (const field of template.fields) {
+      if (['header_banner', 'divider', 'table', 'signature', 'qrcode'].includes(field.type)) continue;
+      if (field.id === 'f_doc_no' || field.id === 'f_doc_date' || field.id === 'f_req_unit' || field.hideOnPrint) continue;
+      const rawVal = effectiveFormData[field.id];
+      if (rawVal === undefined || rawVal === null || rawVal === '') continue;
+      const displayVal =
+        typeof rawVal === 'boolean'
+          ? rawVal
+            ? 'تأیید شده'
+            : 'خیر'
+          : field.type === 'currency'
+          ? `${formatCurrency(rawVal)} ${field.unitLabel || 'ریال'}`
+          : toPersianDigits(String(rawVal));
+      extraFields.push({ label: field.label, value: displayVal });
+    }
+  }
+
   // Prepare table columns and rows
   const columns = tableField?.tableColumns || [
     { id: 'rowNumber', title: 'ردیف', width: 'w-12', type: 'number' },
@@ -54,8 +89,8 @@ export const OfficialPrintDocument: React.FC<OfficialPrintDocumentProps> = ({
   ];
 
   const rawRows: TableItemRow[] = (tableField && effectiveTableData[tableField.id]) || [];
-  const minRows = tableField?.tableInitialRows || 10;
-  const rowCount = Math.max(rawRows.length, minRows);
+  const minRows = tableField ? tableField.tableInitialRows || 10 : 0;
+  const rowCount = tableField ? Math.max(rawRows.length, minRows) : 0;
 
   const displayRows: TableItemRow[] = Array.from({ length: rowCount }, (_, idx) => {
     if (rawRows[idx]) return rawRows[idx];
@@ -72,6 +107,15 @@ export const OfficialPrintDocument: React.FC<OfficialPrintDocumentProps> = ({
     };
   });
 
+  const tableSummary =
+    tableField?.hasTableSummary && !isBlankMode
+      ? calculateTableSummary(
+          rawRows,
+          tableField.discountAmount || 0,
+          tableField.taxRatePercent ?? 10
+        )
+      : null;
+
   const sigLabels = signatureField?.signatureLabels || [
     'واحد درخواست:',
     'انبار:',
@@ -83,21 +127,73 @@ export const OfficialPrintDocument: React.FC<OfficialPrintDocumentProps> = ({
   const docDate = effectiveFormData['f_doc_date'] || headerField?.headerDate || '۱۴۰۵/۰۶/۲۵';
   const docNo = effectiveFormData['f_doc_no'] || headerField?.documentNumber || '۱';
   const formCode = headerField?.formCode || 'AW-ST-FO-008';
-  const requestingUnit = effectiveFormData[`${headerField?.id}_req_unit`] || headerField?.requestingUnit;
+  const requestingUnit =
+    effectiveFormData['f_req_unit'] ||
+    effectiveFormData[`${headerField?.id}_req_unit`] ||
+    headerField?.requestingUnit;
+  const resolvedLogo = resolveHeaderLogo(headerField);
+  const resolvedTable = tableField ? resolveTableStyle(tableField) : null;
+
+  const renderLogoMark = (alignClass = 'items-center justify-center') => {
+    if (resolvedLogo.mode === 'custom' && resolvedLogo.logoUrl) {
+      return (
+        <div className={`flex flex-col ${alignClass} gap-1`}>
+          <img
+            src={resolvedLogo.logoUrl}
+            alt={headerField?.companyName || 'لوگوی شرکت'}
+            style={{ maxHeight: `${resolvedLogo.sizePx}px` }}
+            className="max-w-full object-contain"
+          />
+          {headerField?.companySubName && (
+            <div className="text-[8px] text-black font-medium w-full text-center">
+              {headerField.companySubName}
+            </div>
+          )}
+        </div>
+      );
+    }
+    if (resolvedLogo.mode === 'none') {
+      return (
+        <div className="text-[10px] text-black font-bold text-center">
+          {headerField?.companySubName || headerField?.companyName || ''}
+        </div>
+      );
+    }
+    return (
+      <>
+        <div className="flex items-center gap-1">
+          <span className="font-black text-base tracking-widest text-black font-sans">AWOX</span>
+          <span className="text-red-600 text-sm">◆</span>
+        </div>
+        <div className="text-[7.5px] text-black font-sans font-bold tracking-tight uppercase">
+          AYRIA VANDAD KASRA Int&apos;l Co.
+        </div>
+        <div className="text-[8px] text-black font-medium mt-0.5 border-t border-black pt-0.5 w-full">
+          {headerField?.companySubName || 'شرکت بین‌المللی آیریا ونداد کسری'}
+        </div>
+      </>
+    );
+  };
 
   return (
     <div
-      id="official-print-document"
+      id={embeddedPreview ? 'wizard-print-preview-sheet' : 'official-print-document'}
       dir="rtl"
-      className="bg-white text-black p-4 w-full select-none"
+      data-paper-size={paperSize}
+      data-orientation={orientation}
+      className="bg-white text-black p-4 w-full select-none relative"
       style={{
         fontFamily: 'Vazirmatn, Tahoma, sans-serif',
       }}
     >
       {/* Watermark if enabled */}
       {showWatermark && (
-        <div className="fixed inset-0 pointer-events-none flex items-center justify-center z-0 opacity-15 overflow-hidden">
-          <span className="text-7xl md:text-9xl font-black text-slate-800 -rotate-45 select-none tracking-widest border-4 border-dashed border-slate-500 p-8 rounded-3xl">
+        <div
+          className={`${
+            embeddedPreview ? 'absolute inset-0' : 'fixed inset-0'
+          } pointer-events-none flex items-center justify-center z-0 opacity-15 overflow-hidden`}
+        >
+          <span className="text-6xl md:text-8xl font-black text-slate-800 -rotate-45 select-none tracking-widest border-4 border-dashed border-slate-500 p-6 rounded-3xl">
             {watermarkText}
           </span>
         </div>
@@ -107,15 +203,20 @@ export const OfficialPrintDocument: React.FC<OfficialPrintDocumentProps> = ({
         {/* 1. OFFICIAL THREE-COLUMN HEADER BANNER */}
         <div className="w-full border-2 border-black bg-white">
           <div className="flex divide-x-2 divide-x-reverse divide-black">
-            {/* Box 1 (Right in RTL): Date, Serial, Code */}
+            {/* Box 1 (Right in RTL): Date, Serial, Code (and optional right-positioned logo) */}
             <div className="w-[28%] p-2 flex flex-col justify-center text-xs space-y-1.5 font-bold">
+              {resolvedLogo.position === 'right' && resolvedLogo.mode !== 'none' && (
+                <div className="pb-1.5 border-b border-black flex flex-col items-center">
+                  {renderLogoMark()}
+                </div>
+              )}
               <div className="flex items-center gap-1">
                 <span className="text-black">تاریخ :</span>
-                <span className="font-mono text-xs">{toPersianDigits(docDate)}</span>
+                <span className="font-sans tabular-nums text-xs">{toPersianDigits(docDate)}</span>
               </div>
               <div className="flex items-center gap-1 border-t border-black pt-1">
                 <span className="text-black">شماره سند :</span>
-                <span className="font-mono text-xs">{toPersianDigits(docNo)}</span>
+                <span className="font-sans tabular-nums text-xs">{toPersianDigits(docNo)}</span>
               </div>
               <div className="flex items-center gap-1 border-t border-black pt-1">
                 <span className="text-black">کد فرم :</span>
@@ -125,8 +226,16 @@ export const OfficialPrintDocument: React.FC<OfficialPrintDocumentProps> = ({
 
             {/* Box 2 (Center in RTL): Company Title & Voucher Title */}
             <div className="w-[44%] text-center flex flex-col justify-between">
-              <div className="font-black text-sm md:text-base text-black py-2">
-                {headerField?.companyName || 'آیریا ونداد کسری'}
+              <div className="font-black text-sm md:text-base text-black py-2 px-2 flex flex-col items-center justify-center gap-1">
+                {resolvedLogo.position === 'center' && resolvedLogo.mode === 'custom' && resolvedLogo.logoUrl && (
+                  <img
+                    src={resolvedLogo.logoUrl}
+                    alt={headerField?.companyName || 'لوگوی شرکت'}
+                    style={{ maxHeight: `${resolvedLogo.sizePx}px` }}
+                    className="max-w-full object-contain"
+                  />
+                )}
+                <span>{headerField?.companyName || 'آیریا ونداد کسری'}</span>
               </div>
               <div
                 className={`font-black text-sm md:text-base text-black tracking-tight py-1.5 border-t-2 border-black ${
@@ -138,18 +247,15 @@ export const OfficialPrintDocument: React.FC<OfficialPrintDocumentProps> = ({
               </div>
             </div>
 
-            {/* Box 3 (Left in RTL): AWOX Logo */}
+            {/* Box 3 (Left in RTL): Logo */}
             <div className="w-[28%] p-2 flex flex-col items-center justify-center text-center">
-              <div className="flex items-center gap-1">
-                <span className="font-black text-base tracking-widest text-black font-sans">AWOX</span>
-                <span className="text-red-600 text-sm">◆</span>
-              </div>
-              <div className="text-[7.5px] text-black font-sans font-bold tracking-tight uppercase">
-                AYRIA VANDAD KASRA Int'l Co.
-              </div>
-              <div className="text-[8px] text-black font-medium mt-0.5 border-t border-black pt-0.5 w-full">
-                {headerField?.companySubName || 'شرکت بین‌المللی آیریا ونداد کسری'}
-              </div>
+              {resolvedLogo.position === 'left'
+                ? renderLogoMark()
+                : (
+                  <div className="text-[9px] text-black font-semibold text-center leading-relaxed">
+                    {headerField?.companySubName || 'سند رسمی سازمانی'}
+                  </div>
+                )}
             </div>
           </div>
 
@@ -161,58 +267,138 @@ export const OfficialPrintDocument: React.FC<OfficialPrintDocumentProps> = ({
           )}
         </div>
 
-        {/* 2. TABLE GRID */}
-        <div className="w-full border-2 border-black border-t-0 bg-white">
-          <table className="w-full text-center border-collapse text-xs">
-            <thead>
-              <tr className="border-b-2 border-black bg-white divide-x-2 divide-x-reverse divide-black font-bold">
-                {columns.map((col) => (
-                  <th key={col.id} className={`p-1.5 text-center ${col.width || 'flex-1'} text-black`}>
-                    {col.title}
-                  </th>
-                ))}
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-black">
-              {displayRows.map((row, rIdx) => (
-                <tr key={row.id || rIdx} className="divide-x-2 divide-x-reverse divide-black h-7">
-                  {columns.map((col) => {
-                    if (col.id === 'rowNumber') {
+        {/* Extra Non-Table Metadata / Form Fields */}
+        {extraFields.length > 0 && (
+          <div className="w-full border-2 border-black border-t-0 bg-white px-3 py-2 grid grid-cols-2 gap-x-4 gap-y-1.5 text-xs">
+            {extraFields.map((ef, idx) => (
+              <div key={idx} className="flex items-baseline gap-1.5">
+                <span className="font-bold text-black shrink-0">{ef.label}:</span>
+                <span className="text-black">{ef.value}</span>
+              </div>
+            ))}
+          </div>
+        )}
+
+        {/* 2. TABLE GRID (with Excel-grade Borders, Row/Col Colors & Banding) */}
+        {tableField && resolvedTable && (
+          <div
+            className="w-full bg-white mt-1.5"
+            style={getTableWrapperStyle(resolvedTable)}
+          >
+            <table className="w-full text-center border-collapse text-xs">
+              <thead>
+                <tr>
+                  {columns.map((col, colIdx) => (
+                    <th
+                      key={col.id}
+                      style={getHeaderCellCssStyle(resolvedTable, col, colIdx, columns.length)}
+                      className={col.widthPercent ? '' : col.width || 'flex-1'}
+                    >
+                      {col.title}
+                    </th>
+                  ))}
+                </tr>
+              </thead>
+              <tbody>
+                {displayRows.map((row, rIdx) => (
+                  <tr key={row.id || rIdx} className="h-7">
+                    {columns.map((col, colIdx) => {
+                      const cellStyle = getBodyCellCssStyle(
+                        resolvedTable,
+                        col,
+                        rIdx,
+                        displayRows.length,
+                        colIdx,
+                        columns.length
+                      );
+
+                      if (col.id === 'rowNumber') {
+                        return (
+                          <td
+                            key={col.id}
+                            style={cellStyle}
+                            className="font-sans tabular-nums"
+                          >
+                            {toPersianDigits(rIdx + 1)}
+                          </td>
+                        );
+                      }
+                      const rawVal = row[col.id];
+                      const isCurrency = col.type === 'currency';
+                      const isNumber = col.type === 'number';
+
                       return (
-                        <td key={col.id} className="p-1 text-center font-mono font-medium text-black">
-                          {toPersianDigits(rIdx + 1)}
+                        <td
+                          key={col.id}
+                          style={cellStyle}
+                          className={isCurrency || isNumber ? 'font-sans tabular-nums' : ''}
+                        >
+                          {isCurrency && rawVal
+                            ? formatCurrency(rawVal)
+                            : isNumber && rawVal
+                            ? toPersianDigits(rawVal)
+                            : rawVal !== 0 && rawVal !== null && rawVal !== undefined
+                            ? String(rawVal)
+                            : ''}
                         </td>
                       );
-                    }
-                    const rawVal = row[col.id];
-                    const isNumber = col.type === 'number';
-                    const isLeftText = col.id === 'description' || col.id === 'notes';
+                    })}
+                  </tr>
+                ))}
+              </tbody>
+            </table>
 
-                    return (
-                      <td
-                        key={col.id}
-                        className={`p-1 text-black ${isLeftText ? 'text-right pr-2' : 'text-center'}`}
-                      >
-                        {isNumber && rawVal
-                          ? toPersianDigits(rawVal)
-                          : rawVal !== 0 && rawVal !== null && rawVal !== undefined
-                          ? String(rawVal)
-                          : ''}
-                      </td>
-                    );
-                  })}
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
+            {tableSummary && (
+              <div
+                style={{
+                  backgroundColor: resolvedTable.summaryBgColor,
+                  color: resolvedTable.summaryTextColor,
+                  borderTop: `2px solid ${resolvedTable.outerBorderColor || '#000000'}`,
+                  WebkitPrintColorAdjust: 'exact',
+                  printColorAdjust: 'exact',
+                }}
+                className="px-3 py-2 flex flex-wrap items-center justify-between gap-3 text-xs"
+              >
+                <div className="flex items-center gap-4">
+                  <span>
+                    جمع کل: <strong className="font-sans tabular-nums">{formatCurrency(tableSummary.subtotal)} ریال</strong>
+                  </span>
+                  {tableSummary.discountAmount > 0 && (
+                    <span>
+                      تخفیف: <strong className="font-sans tabular-nums">{formatCurrency(tableSummary.discountAmount)} ریال</strong>
+                    </span>
+                  )}
+                  {(tableField.taxRatePercent ?? 10) > 0 && (
+                    <span>
+                      مالیات ({toPersianDigits(tableField.taxRatePercent ?? 10)}٪):{' '}
+                      <strong className="font-sans tabular-nums">{formatCurrency(tableSummary.taxAmount)} ریال</strong>
+                    </span>
+                  )}
+                </div>
+                <div className="font-bold">
+                  مبلغ نهایی: <span className="font-sans tabular-nums">{formatCurrency(tableSummary.grandTotal)} ریال</span>
+                </div>
+              </div>
+            )}
+          </div>
+        )}
 
         {/* 3. SIGNATURES FOOTER BOX */}
         <div className="w-full border-2 border-black border-t-0 bg-white">
-          <div className="grid grid-cols-5 divide-x-2 divide-x-reverse divide-black text-center min-h-[90px]">
+          <div
+            className={`grid divide-x-2 divide-x-reverse divide-black text-center min-h-[90px] ${
+              sigLabels.length === 2
+                ? 'grid-cols-2'
+                : sigLabels.length === 3
+                ? 'grid-cols-3'
+                : sigLabels.length === 4
+                ? 'grid-cols-4'
+                : 'grid-cols-5'
+            }`}
+          >
             {sigLabels.map((lbl, idx) => {
               const sigKey = `${signatureField?.id || 'f_signatures'}_sig_${idx}`;
-              const sigDrawing = effectiveSigData[sigKey];
+              const sigDrawing = effectiveSigData[sigKey] || effectiveSigData[signatureField?.id || ''];
 
               return (
                 <div key={idx} className="p-2 flex flex-col justify-between h-full">

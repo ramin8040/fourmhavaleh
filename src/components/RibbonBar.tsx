@@ -26,7 +26,7 @@ import {
 import { PaperSize, PageOrientation } from '../types/form';
 import { ThemeMode } from '../utils/theme';
 
-export type RibbonTab = 'design' | 'fill' | 'database' | 'print' | 'templates';
+export type RibbonTab = 'wizard' | 'design' | 'fill' | 'database' | 'print' | 'templates';
 
 interface RibbonBarProps {
   activeTab: RibbonTab;

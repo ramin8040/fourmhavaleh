@@ -1,35 +1,35 @@
 import React, { useState } from 'react';
 import {
+  FileCheck2,
+  FolderOpen,
+  Camera,
+  FilePlus2,
+  ChevronDown,
+  ChevronUp,
+  ChevronRight,
+  ChevronLeft,
   Layers,
   PenTool,
-  Database,
-  Printer,
   LayoutDashboard,
-  Sparkles,
+  Printer,
+  Save,
+  FileSpreadsheet,
+  Download,
+  Upload,
+  RotateCcw,
+  Sun,
+  Moon,
+  Laptop,
+  X,
+  SlidersHorizontal,
+  Copy,
+  Trash2,
   Truck,
   PackageCheck,
   Wrench,
-  FileCheck2,
   Receipt,
-  FilePlus2,
-  Save,
-  Download,
-  Upload,
-  FileSpreadsheet,
-  RotateCcw,
-  ChevronRight,
-  ChevronLeft,
-  Moon,
-  Sun,
-  Laptop,
-  CheckCircle2,
-  ShieldCheck,
-  Sliders,
-  Copy,
-  Trash2,
-  Eye
 } from 'lucide-react';
-import { FormTemplate, PaperSize, PageOrientation } from '../types/form';
+import { FormTemplate } from '../types/form';
 import { RibbonTab } from './RibbonBar';
 import { ThemeMode } from '../utils/theme';
 import { toPersianDigits } from '../utils/formLogic';
@@ -59,6 +59,8 @@ interface AppVerticalSidebarProps {
   themeMode?: ThemeMode;
   onThemeChange?: (mode: ThemeMode) => void;
   documentNumber?: string;
+  isMobileOpen?: boolean;
+  onCloseMobile?: () => void;
 }
 
 export const AppVerticalSidebar: React.FC<AppVerticalSidebarProps> = ({
@@ -71,7 +73,6 @@ export const AppVerticalSidebar: React.FC<AppVerticalSidebarProps> = ({
   onSelectTemplate,
   onSaveRecord,
   onQuickPrint,
-  onPreviewPrint,
   onNewVoucher,
   onResetCanvas,
   onExportCsv,
@@ -85,557 +86,536 @@ export const AppVerticalSidebar: React.FC<AppVerticalSidebarProps> = ({
   recordsCount,
   themeMode = 'system',
   onThemeChange,
-  documentNumber = '۱',
+  isMobileOpen = false,
+  onCloseMobile,
 }) => {
   const [isCollapsed, setIsCollapsed] = useState(false);
+  const [showAdvanced, setShowAdvanced] = useState(false);
 
-  const voucherTypes = [
+  const closeOnMobile = () => {
+    if (onCloseMobile) onCloseMobile();
+  };
+
+  const effectiveCollapsed = isCollapsed && !isMobileOpen;
+
+  const quickTemplates = [
     {
       id: 'preset_dispatch_voucher',
-      title: 'حواله خروج محصول',
-      code: 'AW-ST-FO-008',
-      color: 'blue',
-      activeColorClass: 'from-blue-600 to-indigo-600 text-white shadow-blue-500/25',
-      badgeColorClass: 'text-blue-500 bg-blue-500/10 border-blue-500/20',
-      icon: <Truck className="w-4 h-4 text-blue-500" />,
+      title: 'حواله خروج کالا',
+      icon: <Truck className="w-4 h-4 text-sky-600 dark:text-sky-400" />,
     },
     {
-      id: 'preset_foreign_goods_receipt',
-      title: 'رسید کالا و قطعات خارجی',
-      code: 'AW-ST-FO-008',
-      color: 'emerald',
-      activeColorClass: 'from-emerald-600 to-teal-600 text-white shadow-emerald-500/25',
-      badgeColorClass: 'text-emerald-500 bg-emerald-500/10 border-emerald-500/20',
-      icon: <PackageCheck className="w-4 h-4 text-emerald-500" />,
+      id: 'preset_receipt_foreign_goods',
+      title: 'رسید ورود کالا',
+      icon: <PackageCheck className="w-4 h-4 text-emerald-600 dark:text-emerald-400" />,
     },
     {
       id: 'preset_repair_receipt',
-      title: 'رسید تعمیرات تجهیزات',
-      code: 'AW-ST-FO-008',
-      color: 'amber',
-      activeColorClass: 'from-amber-600 to-orange-600 text-white shadow-amber-500/25',
-      badgeColorClass: 'text-amber-500 bg-amber-500/10 border-amber-500/20',
-      icon: <Wrench className="w-4 h-4 text-amber-500" />,
+      title: 'رسید تعمیرات',
+      icon: <Wrench className="w-4 h-4 text-amber-600 dark:text-amber-400" />,
     },
     {
-      id: 'preset_repair_inquiry',
-      title: 'استعلام درخواست تعمیرات',
-      code: 'AW-ST-FO-008',
-      color: 'purple',
-      activeColorClass: 'from-purple-600 to-violet-600 text-white shadow-purple-500/25',
-      badgeColorClass: 'text-purple-500 bg-purple-500/10 border-purple-500/20',
-      icon: <FileCheck2 className="w-4 h-4 text-purple-500" />,
-    },
-    {
-      id: 'preset_material_requisition',
-      title: 'درخواست اقلام مصرفی',
-      code: 'AW-ST-FO-008',
-      color: 'cyan',
-      activeColorClass: 'from-cyan-600 to-blue-600 text-white shadow-cyan-500/25',
-      badgeColorClass: 'text-cyan-500 bg-cyan-500/10 border-cyan-500/20',
-      icon: <Layers className="w-4 h-4 text-cyan-500" />,
-    },
-    {
-      id: 'preset_official_invoice',
-      title: 'فاکتور رسمی کالا و خدمات',
-      code: 'INV-1403',
-      color: 'indigo',
-      activeColorClass: 'from-indigo-600 to-purple-600 text-white shadow-indigo-500/25',
-      badgeColorClass: 'text-indigo-500 bg-indigo-500/10 border-indigo-500/20',
-      icon: <Receipt className="w-4 h-4 text-indigo-500" />,
+      id: 'preset_invoice_1',
+      title: 'فاکتور فروش',
+      icon: <Receipt className="w-4 h-4 text-indigo-600 dark:text-indigo-400" />,
     },
   ];
 
   return (
-    <aside
-      className={`h-full bg-white dark:bg-[#161719] border-l border-slate-200 dark:border-[#282a2e] flex flex-col shrink-0 select-none shadow-xl transition-all duration-300 z-30 ${
-        isCollapsed ? 'w-[72px]' : 'w-[270px]'
-      }`}
-    >
-      {/* 1. Sidebar Brand & Toggle Bar */}
-      <div className="p-3 border-b border-slate-200/80 dark:border-[#26282c] flex items-center justify-between gap-2 bg-gradient-to-b from-slate-50 to-white dark:from-[#1a1b1e] dark:to-[#161719]">
-        {!isCollapsed && (
-          <div className="flex items-center gap-2.5 overflow-hidden">
-            <div className="w-8 h-8 rounded-lg bg-gradient-to-tr from-blue-600 via-indigo-600 to-purple-600 flex items-center justify-center text-white shadow-md shadow-blue-500/20 shrink-0">
-              <Truck className="w-4 h-4" />
+    <>
+      {/* Mobile / Tablet Drawer Backdrop */}
+      {isMobileOpen && (
+        <div
+          aria-hidden="true"
+          onClick={closeOnMobile}
+          className="fixed inset-0 z-40 bg-slate-900/40 backdrop-blur-xs lg:hidden"
+        />
+      )}
+
+      <aside
+        data-testid="app-vertical-sidebar"
+        className={`fixed inset-y-0 right-0 z-50 h-full lg:h-auto liquid-glass-elevated lg:rounded-3xl lg:my-3 lg:mr-3 flex flex-col shrink-0 select-none transition-transform lg:transition-all duration-200 lg:static lg:z-30 lg:translate-x-0 lg:pointer-events-auto ${
+          isMobileOpen ? 'translate-x-0 pointer-events-auto' : 'translate-x-full pointer-events-none'
+        } ${effectiveCollapsed ? 'w-[76px]' : 'w-[280px] max-w-[85vw] lg:w-[252px]'}`}
+      >
+        {/* Top Sidebar Header */}
+        <div className="p-3.5 border-b border-white/60 dark:border-white/10 flex items-center justify-between gap-2">
+          {!effectiveCollapsed ? (
+            <div className="min-w-0">
+              <div className="text-xs font-bold text-slate-900 dark:text-white truncate">
+                منوی سریع
+              </div>
+              <div className="text-[11px] text-slate-500 dark:text-slate-400 truncate">
+                همه کارها در چند کلیک
+              </div>
             </div>
-            <div className="overflow-hidden">
-              <h1 className="text-xs font-black tracking-tight text-slate-800 dark:text-slate-100 truncate">
-                منوی مدیریت و صدور حواله
-              </h1>
-              <span className="text-[10px] font-bold text-blue-600 dark:text-[#4cc2ff] block truncate font-mono">
-                AW-ST-FO-008
-              </span>
-            </div>
-          </div>
-        )}
-
-        {isCollapsed && (
-          <div className="w-8 h-8 mx-auto rounded-lg bg-gradient-to-tr from-blue-600 to-indigo-600 flex items-center justify-center text-white shadow-md shadow-blue-500/20 shrink-0">
-            <Truck className="w-4 h-4" />
-          </div>
-        )}
-
-        <button
-          onClick={() => setIsCollapsed(!isCollapsed)}
-          className="p-1.5 rounded-lg text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 hover:bg-slate-100 dark:hover:bg-[#25272b] transition-colors"
-          title={isCollapsed ? 'باز کردن منوی عمودی' : 'جمع کردن منو'}
-        >
-          {isCollapsed ? <ChevronLeft className="w-4 h-4" /> : <ChevronRight className="w-4 h-4" />}
-        </button>
-      </div>
-
-      {/* 2. Main Scrollable Navigation Area */}
-      <div className="flex-1 overflow-y-auto overflow-x-hidden p-2.5 space-y-4 text-xs">
-        {/* Navigation Tabs (Vertical) */}
-        <div>
-          {!isCollapsed && (
-            <div className="px-2 mb-1.5 text-[10px] font-extrabold uppercase tracking-wider text-slate-400 dark:text-slate-500">
-              بخش‌های اصلی سیستم
+          ) : (
+            <div className="w-8 h-8 mx-auto rounded-xl bg-sky-500/15 text-sky-600 dark:text-sky-300 flex items-center justify-center">
+              <FileCheck2 className="w-4 h-4" />
             </div>
           )}
 
-          <nav className="space-y-1">
-            {/* 1. Fill Mode */}
+          {/* Desktop Collapse Button */}
+          <button
+            type="button"
+            onClick={() => setIsCollapsed(!isCollapsed)}
+            className="hidden lg:inline-flex p-1.5 rounded-xl text-slate-500 hover:text-slate-800 dark:text-slate-400 dark:hover:text-white hover:bg-white/60 dark:hover:bg-white/10 transition-colors cursor-pointer"
+            title={isCollapsed ? 'باز کردن منو' : 'جمع کردن منو'}
+            aria-label={isCollapsed ? 'باز کردن منو' : 'جمع کردن منو'}
+          >
+            {isCollapsed ? <ChevronLeft className="w-4 h-4" /> : <ChevronRight className="w-4 h-4" />}
+          </button>
+
+          {/* Mobile Close Button */}
+          {onCloseMobile && (
             <button
+              type="button"
+              onClick={closeOnMobile}
+              aria-label="بستن منو"
+              className="lg:hidden p-2 rounded-xl text-slate-600 dark:text-slate-300 hover:bg-white/60 dark:hover:bg-white/10 transition-colors cursor-pointer"
+            >
+              <X className="w-4 h-4" />
+            </button>
+          )}
+        </div>
+
+        {/* Main Navigation Area */}
+        <div className="flex-1 overflow-y-auto overflow-x-hidden p-3 space-y-4">
+          {/* Everyday Simple Actions (Only 4 friendly buttons) */}
+          <nav aria-label="کارهای اصلی" className="space-y-2">
+            {/* 1. Make New Document (Wizard) */}
+            <button
+              type="button"
               onClick={() => {
-                onTabChange('fill');
+                onTabChange('wizard');
                 onToggleFillMode(true);
+                closeOnMobile();
               }}
-              className={`w-full flex items-center gap-2.5 px-3 py-2 rounded-xl text-right font-bold transition-all relative group ${
-                activeTab === 'fill' && isFillMode
-                  ? 'bg-gradient-to-r from-blue-600 to-indigo-600 text-white shadow-md shadow-blue-500/25'
-                  : 'text-slate-700 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-[#222428] hover:text-blue-600 dark:hover:text-[#4cc2ff]'
+              className={`w-full flex items-center gap-3 px-3 py-3 rounded-2xl text-right transition-all cursor-pointer ${
+                activeTab === 'wizard'
+                  ? 'liquid-cta'
+                  : 'liquid-glass-well hover:bg-white/80 dark:hover:bg-slate-800/70 text-slate-800 dark:text-slate-100'
               }`}
-              title="صدور و تکمیل حواله / رسید انبار"
             >
-              <div className={`p-1.5 rounded-lg shrink-0 ${
-                activeTab === 'fill' && isFillMode
-                  ? 'bg-white/20 text-white'
-                  : 'bg-blue-50 dark:bg-blue-950/40 text-blue-600 dark:text-[#4cc2ff]'
-              }`}>
-                <Layers className="w-4 h-4" />
+              <div
+                className={`w-9 h-9 rounded-xl flex items-center justify-center shrink-0 ${
+                  activeTab === 'wizard'
+                    ? 'bg-white/20 text-white'
+                    : 'bg-sky-500/12 text-sky-600 dark:text-sky-300'
+                }`}
+              >
+                <FileCheck2 className="w-5 h-5" />
               </div>
-              {!isCollapsed && (
-                <div className="flex-1 truncate">
-                  <div className="text-xs">صدور و تکمیل سند</div>
-                  <div className={`text-[10px] font-normal truncate ${
-                    activeTab === 'fill' && isFillMode ? 'text-blue-100' : 'text-slate-400'
-                  }`}>
-                    ورود داده و کاردکس کالا
+              {!effectiveCollapsed && (
+                <div className="flex-1 min-w-0">
+                  <div className="text-xs font-bold truncate">ساخت برگه جدید</div>
+                  <div
+                    className={`text-[11px] truncate ${
+                      activeTab === 'wizard' ? 'text-sky-50' : 'text-slate-500 dark:text-slate-400'
+                    }`}
+                  >
+                    ساده و مرحله‌به‌مرحله
                   </div>
                 </div>
               )}
             </button>
 
-            {/* 2. Design Mode */}
+            {/* 2. My Saved Documents (Archive) */}
             <button
+              type="button"
               onClick={() => {
-                onTabChange('design');
-                onToggleFillMode(false);
+                onTabChange('database');
+                closeOnMobile();
               }}
-              className={`w-full flex items-center gap-2.5 px-3 py-2 rounded-xl text-right font-bold transition-all relative group ${
-                activeTab === 'design' && !isFillMode
-                  ? 'bg-gradient-to-r from-purple-600 to-indigo-600 text-white shadow-md shadow-purple-500/25'
-                  : 'text-slate-700 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-[#222428] hover:text-purple-600 dark:hover:text-purple-400'
-              }`}
-              title="طراحی و ویرایش فیلدها و ساختار جدول"
-            >
-              <div className={`p-1.5 rounded-lg shrink-0 ${
-                activeTab === 'design' && !isFillMode
-                  ? 'bg-white/20 text-white'
-                  : 'bg-purple-50 dark:bg-purple-950/40 text-purple-600 dark:text-purple-400'
-              }`}>
-                <PenTool className="w-4 h-4" />
-              </div>
-              {!isCollapsed && (
-                <div className="flex-1 truncate">
-                  <div className="text-xs">طراحی ساختار فرم</div>
-                  <div className={`text-[10px] font-normal truncate ${
-                    activeTab === 'design' && !isFillMode ? 'text-purple-100' : 'text-slate-400'
-                  }`}>
-                    ویرایش فیلدها و ستون‌ها
-                  </div>
-                </div>
-              )}
-            </button>
-
-            {/* 3. Archive / Database */}
-            <button
-              onClick={() => onTabChange('database')}
-              className={`w-full flex items-center gap-2.5 px-3 py-2 rounded-xl text-right font-bold transition-all relative group ${
+              className={`w-full flex items-center gap-3 px-3 py-3 rounded-2xl text-right transition-all cursor-pointer ${
                 activeTab === 'database'
-                  ? 'bg-gradient-to-r from-emerald-600 to-teal-600 text-white shadow-md shadow-emerald-500/25'
-                  : 'text-slate-700 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-[#222428] hover:text-emerald-600 dark:hover:text-emerald-400'
+                  ? 'liquid-cta-success'
+                  : 'liquid-glass-well hover:bg-white/80 dark:hover:bg-slate-800/70 text-slate-800 dark:text-slate-100'
               }`}
-              title="بایگانی اسناد و پیگیری رکوردهای ثبت‌شده"
             >
-              <div className={`p-1.5 rounded-lg shrink-0 ${
-                activeTab === 'database'
-                  ? 'bg-white/20 text-white'
-                  : 'bg-emerald-50 dark:bg-emerald-950/40 text-emerald-600 dark:text-emerald-400'
-              }`}>
-                <Database className="w-4 h-4" />
+              <div
+                className={`w-9 h-9 rounded-xl flex items-center justify-center shrink-0 ${
+                  activeTab === 'database'
+                    ? 'bg-white/20 text-white'
+                    : 'bg-emerald-500/12 text-emerald-600 dark:text-emerald-300'
+                }`}
+              >
+                <FolderOpen className="w-5 h-5" />
               </div>
-              {!isCollapsed && (
-                <div className="flex-1 flex items-center justify-between overflow-hidden">
-                  <div className="truncate">
-                    <div className="text-xs">بایگانی و رهگیری</div>
-                    <div className={`text-[10px] font-normal truncate ${
-                      activeTab === 'database' ? 'text-emerald-100' : 'text-slate-400'
-                    }`}>
-                      جستجو و خروجی اکسل
+              {!effectiveCollapsed && (
+                <div className="flex-1 flex items-center justify-between gap-2 min-w-0">
+                  <div className="min-w-0">
+                    <div className="text-xs font-bold truncate">برگه‌های من</div>
+                    <div
+                      className={`text-[11px] truncate ${
+                        activeTab === 'database'
+                          ? 'text-emerald-50'
+                          : 'text-slate-500 dark:text-slate-400'
+                      }`}
+                    >
+                      دیدن و چاپ برگه‌ها
                     </div>
                   </div>
-                  <span className={`text-[10px] font-black px-1.5 py-0.5 rounded-full font-mono shrink-0 mr-1 ${
-                    activeTab === 'database'
-                      ? 'bg-white text-emerald-700'
-                      : 'bg-emerald-100 dark:bg-emerald-950/80 text-emerald-700 dark:text-emerald-300'
-                  }`}>
+                  <span
+                    className={`text-xs font-bold tabular-nums shrink-0 ${
+                      activeTab === 'database'
+                        ? 'text-white'
+                        : 'text-emerald-700 dark:text-emerald-300'
+                    }`}
+                  >
                     {toPersianDigits(recordsCount)}
                   </span>
                 </div>
               )}
             </button>
 
-            {/* 4. Print & Export */}
-            <button
-              onClick={() => onTabChange('print')}
-              className={`w-full flex items-center gap-2.5 px-3 py-2 rounded-xl text-right font-bold transition-all relative group ${
-                activeTab === 'print'
-                  ? 'bg-gradient-to-r from-cyan-600 to-blue-600 text-white shadow-md shadow-cyan-500/25'
-                  : 'text-slate-700 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-[#222428] hover:text-cyan-600 dark:hover:text-cyan-400'
-              }`}
-              title="چاپ و تنظیمات خروجی استاندارد ویندوز"
-            >
-              <div className={`p-1.5 rounded-lg shrink-0 ${
-                activeTab === 'print'
-                  ? 'bg-white/20 text-white'
-                  : 'bg-cyan-50 dark:bg-cyan-950/40 text-cyan-600 dark:text-cyan-400'
-              }`}>
-                <Printer className="w-4 h-4" />
-              </div>
-              {!isCollapsed && (
-                <div className="flex-1 truncate">
-                  <div className="text-xs">چاپ و پیش‌نمایش</div>
-                  <div className={`text-[10px] font-normal truncate ${
-                    activeTab === 'print' ? 'text-cyan-100' : 'text-slate-400'
-                  }`}>
-                    چاپ رسمی و واترمارک
-                  </div>
+            {/* 3. Create from Photo */}
+            {onOpenImageToForm && (
+              <button
+                type="button"
+                onClick={() => {
+                  onOpenImageToForm();
+                  closeOnMobile();
+                }}
+                className="w-full flex items-center gap-3 px-3 py-3 rounded-2xl text-right liquid-glass-well hover:bg-white/80 dark:hover:bg-slate-800/70 text-slate-800 dark:text-slate-100 transition-all cursor-pointer"
+              >
+                <div className="w-9 h-9 rounded-xl bg-indigo-500/12 text-indigo-600 dark:text-indigo-300 flex items-center justify-center shrink-0">
+                  <Camera className="w-5 h-5" />
                 </div>
-              )}
-            </button>
+                {!effectiveCollapsed && (
+                  <div className="flex-1 min-w-0">
+                    <div className="text-xs font-bold truncate">ساخت برگه از عکس</div>
+                    <div className="text-[11px] text-slate-500 dark:text-slate-400 truncate">
+                      از کاغذ عکس بگیر
+                    </div>
+                  </div>
+                )}
+              </button>
+            )}
 
-            {/* 5. Templates Manager */}
+            {/* 4. Quick Fresh Start */}
             <button
-              onClick={() => onTabChange('templates')}
-              className={`w-full flex items-center gap-2.5 px-3 py-2 rounded-xl text-right font-bold transition-all relative group ${
-                activeTab === 'templates'
-                  ? 'bg-gradient-to-r from-amber-600 to-orange-600 text-white shadow-md shadow-amber-500/25'
-                  : 'text-slate-700 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-[#222428] hover:text-amber-600 dark:hover:text-amber-400'
-              }`}
-              title="مدیریت قالب‌های رسمی و سفارشی"
+              type="button"
+              onClick={() => {
+                onNewVoucher();
+                closeOnMobile();
+              }}
+              className="w-full flex items-center gap-3 px-3 py-2.5 rounded-2xl text-right liquid-glass-well hover:bg-white/80 dark:hover:bg-slate-800/70 text-slate-700 dark:text-slate-200 transition-all cursor-pointer"
             >
-              <div className={`p-1.5 rounded-lg shrink-0 ${
-                activeTab === 'templates'
-                  ? 'bg-white/20 text-white'
-                  : 'bg-amber-50 dark:bg-amber-950/40 text-amber-600 dark:text-amber-400'
-              }`}>
-                <LayoutDashboard className="w-4 h-4" />
+              <div className="w-9 h-9 rounded-xl bg-slate-500/10 text-slate-600 dark:text-slate-300 flex items-center justify-center shrink-0">
+                <FilePlus2 className="w-5 h-5" />
               </div>
-              {!isCollapsed && (
-                <div className="flex-1 truncate">
-                  <div className="text-xs">الگوها و قالب‌ها</div>
-                  <div className={`text-[10px] font-normal truncate ${
-                    activeTab === 'templates' ? 'text-amber-100' : 'text-slate-400'
-                  }`}>
-                    تعریف، ویرایش و کپی
+              {!effectiveCollapsed && (
+                <div className="flex-1 min-w-0">
+                  <div className="text-xs font-semibold truncate">برگه تازه و خالی</div>
+                  <div className="text-[11px] text-slate-500 dark:text-slate-400 truncate">
+                    شروع از صفر
                   </div>
                 </div>
               )}
             </button>
           </nav>
-        </div>
 
-        {/* 3. Hero Feature CTA: AI Image to Form */}
-        {onOpenImageToForm && (
-          <div className="pt-1">
-            {!isCollapsed ? (
+          {/* Progressive Disclosure: Advanced Tools (collapsed by default) */}
+          {!effectiveCollapsed && (
+            <div className="pt-3 border-t border-white/60 dark:border-white/10">
               <button
-                onClick={onOpenImageToForm}
-                className="w-full text-right p-3 rounded-2xl bg-gradient-to-br from-violet-600 via-indigo-600 to-purple-700 hover:from-violet-500 hover:to-purple-600 text-white shadow-lg shadow-indigo-500/25 border border-white/20 transition-all transform hover:-translate-y-0.5 active:translate-y-0 group"
+                type="button"
+                onClick={() => setShowAdvanced((prev) => !prev)}
+                aria-expanded={showAdvanced}
+                data-testid="sidebar-advanced-toggle"
+                className="w-full flex items-center justify-between px-3 py-2 rounded-xl text-xs font-semibold text-slate-600 dark:text-slate-300 hover:bg-white/60 dark:hover:bg-white/10 transition-colors cursor-pointer"
               >
-                <div className="flex items-center justify-between mb-1.5">
-                  <span className="flex items-center gap-1.5 text-xs font-black">
-                    <Sparkles className="w-4 h-4 text-amber-300 animate-pulse" />
-                    <span>تبدیل عکس به فرم</span>
-                  </span>
-                  <span className="text-[9px] font-bold bg-white/25 px-2 py-0.5 rounded-full text-white">
-                    هوشمند Vision
-                  </span>
-                </div>
-                <p className="text-[11px] text-indigo-100 leading-tight">
-                  تصویر فیزیکی حواله یا رسید را بدهید و فوراً فرم دیجیتال تحویل بگیرید.
-                </p>
-              </button>
-            ) : (
-              <button
-                onClick={onOpenImageToForm}
-                className="w-full flex items-center justify-center p-2.5 rounded-xl bg-gradient-to-tr from-violet-600 to-purple-600 text-white shadow-md shadow-violet-500/30 hover:scale-105 transition-transform"
-                title="تبدیل عکس به فرم (هوش مصنوعی)"
-              >
-                <Sparkles className="w-5 h-5 text-amber-300" />
-              </button>
-            )}
-          </div>
-        )}
-
-        {/* 4. Quick Voucher Selector List (انواع سند) */}
-        <div>
-          {!isCollapsed && (
-            <div className="px-2 mb-1.5 text-[10px] font-extrabold uppercase tracking-wider text-slate-400 dark:text-slate-500 flex items-center justify-between">
-              <span>انواع حواله و رسیدها</span>
-              <span className="text-slate-400 font-mono">۶ الگو</span>
-            </div>
-          )}
-
-          <div className="space-y-1">
-            {voucherTypes.map((vt) => {
-              const isActive = activeTemplateId === vt.id;
-              const matchingTemplate = templates.find((t) => t.id === vt.id);
-
-              return (
-                <button
-                  key={vt.id}
-                  onClick={() => {
-                    if (matchingTemplate) {
-                      onSelectTemplate(matchingTemplate);
-                      onTabChange('fill');
-                      onToggleFillMode(true);
-                    }
-                  }}
-                  className={`w-full flex items-center gap-2 px-2.5 py-1.5 rounded-lg text-right transition-all border ${
-                    isActive
-                      ? 'bg-blue-50/80 dark:bg-blue-950/40 border-blue-500/50 text-blue-700 dark:text-[#4cc2ff] font-bold shadow-xs'
-                      : 'border-transparent text-slate-700 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-[#202226]'
-                  }`}
-                  title={`${vt.title} (${vt.code})`}
-                >
-                  <div className="shrink-0">{vt.icon}</div>
-                  {!isCollapsed && (
-                    <div className="flex-1 truncate">
-                      <div className="text-xs truncate">{vt.title}</div>
-                    </div>
-                  )}
-                  {!isCollapsed && isActive && (
-                    <span className="w-1.5 h-1.5 rounded-full bg-blue-600 dark:bg-[#4cc2ff] shrink-0"></span>
-                  )}
-                </button>
-              );
-            })}
-          </div>
-        </div>
-
-        {/* 5. Primary Action Buttons */}
-        <div className="pt-2 border-t border-slate-200/80 dark:border-[#26282c] space-y-1.5">
-          {!isCollapsed && (
-            <div className="px-2 mb-1 text-[10px] font-extrabold uppercase tracking-wider text-slate-400 dark:text-slate-500">
-              عملیات پرکاربرد سند
-            </div>
-          )}
-
-          {/* Save Action */}
-          <button
-            onClick={onSaveRecord}
-            className={`w-full flex items-center justify-center gap-2 py-2 px-3 rounded-xl font-black text-white bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-500 hover:to-teal-500 shadow-md shadow-emerald-600/20 active:scale-98 transition-all ${
-              isCollapsed ? 'p-2' : ''
-            }`}
-            title="ثبت سند جاری در بایگانی و صدور شماره رهگیری (Ctrl + S)"
-          >
-            <Save className="w-4 h-4 shrink-0" />
-            {!isCollapsed && <span>ثبت در بایگانی انبار</span>}
-          </button>
-
-          {/* Quick Print Action */}
-          <button
-            onClick={onQuickPrint}
-            className={`w-full flex items-center justify-center gap-2 py-2 px-3 rounded-xl font-black text-white bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-500 hover:to-indigo-500 shadow-md shadow-blue-600/20 active:scale-98 transition-all ${
-              isCollapsed ? 'p-2' : ''
-            }`}
-            title="چاپ فوری سند با تنظیمات ویندوز (Ctrl + P)"
-          >
-            <Printer className="w-4 h-4 shrink-0" />
-            {!isCollapsed && <span>چاپ فوری سند</span>}
-          </button>
-
-          {/* New Blank Voucher */}
-          <button
-            onClick={onNewVoucher}
-            className={`w-full flex items-center justify-center gap-2 py-1.5 px-3 rounded-xl font-bold border border-slate-300 dark:border-[#383a3e] bg-slate-50 dark:bg-[#1f2125] hover:bg-slate-100 dark:hover:bg-[#282a2f] text-slate-700 dark:text-slate-200 transition-colors ${
-              isCollapsed ? 'p-2' : ''
-            }`}
-            title="صدور حواله یا رسید جدید با ردیف‌های خالی"
-          >
-            <FilePlus2 className="w-4 h-4 text-blue-600 dark:text-[#4cc2ff] shrink-0" />
-            {!isCollapsed && <span>سند جدید با ردیف خالی</span>}
-          </button>
-
-          {/* Contextual actions for Database / Templates */}
-          {activeTab === 'database' && !isCollapsed && (
-            <div className="pt-1.5 space-y-1">
-              <button
-                onClick={onExportCsv}
-                className="w-full flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg border border-emerald-300 dark:border-emerald-800 bg-emerald-50/70 dark:bg-emerald-950/30 text-emerald-800 dark:text-emerald-300 text-[11px] font-bold hover:bg-emerald-100 transition-colors"
-              >
-                <FileSpreadsheet className="w-3.5 h-3.5 text-emerald-600 dark:text-emerald-400" />
-                <span>خروجی اکسل (Excel/CSV)</span>
-              </button>
-              <div className="grid grid-cols-2 gap-1">
-                <button
-                  onClick={onExportBackup}
-                  className="flex items-center justify-center gap-1 p-1.5 rounded-lg border border-slate-200 dark:border-[#333] bg-white dark:bg-[#202226] text-slate-700 dark:text-slate-300 text-[10px] hover:bg-slate-50 transition-colors"
-                >
-                  <Download className="w-3 h-3" />
-                  <span>دانلود پشتیبان</span>
-                </button>
-                <button
-                  onClick={onImportBackup}
-                  className="flex items-center justify-center gap-1 p-1.5 rounded-lg border border-slate-200 dark:border-[#333] bg-white dark:bg-[#202226] text-slate-700 dark:text-slate-300 text-[10px] hover:bg-slate-50 transition-colors"
-                >
-                  <Upload className="w-3 h-3" />
-                  <span>بازیابی</span>
-                </button>
-              </div>
-            </div>
-          )}
-
-          {activeTab === 'design' && !isCollapsed && (
-            <div className="pt-1.5 space-y-1">
-              <button
-                onClick={onResetCanvas}
-                className="w-full flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg border border-red-200 dark:border-red-900/60 bg-red-50/70 dark:bg-red-950/20 text-red-700 dark:text-red-300 text-[11px] font-bold hover:bg-red-100 transition-colors"
-              >
-                <RotateCcw className="w-3.5 h-3.5" />
-                <span>پاک‌سازی کامل بوم</span>
-              </button>
-              {onSaveActiveTemplate && (
-                <button
-                  onClick={onSaveActiveTemplate}
-                  className="w-full flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg border border-blue-200 dark:border-blue-900/60 bg-blue-50/70 dark:bg-blue-950/20 text-blue-700 dark:text-[#4cc2ff] text-[11px] font-bold hover:bg-blue-100 transition-colors"
-                >
-                  <Save className="w-3.5 h-3.5" />
-                  <span>ذخیره تغییرات قالب</span>
-                </button>
-              )}
-            </div>
-          )}
-
-          {activeTab === 'templates' && !isCollapsed && (
-            <div className="pt-1.5 space-y-1">
-              <button
-                onClick={onOpenTemplates}
-                className="w-full flex items-center justify-center gap-1.5 px-2.5 py-2 rounded-xl bg-amber-600 hover:bg-amber-500 text-white text-xs font-black shadow-md shadow-amber-600/20 transition-colors"
-              >
-                <LayoutDashboard className="w-3.5 h-3.5" />
-                <span>پنجره مدیریت الگوها</span>
-              </button>
-              {onDuplicateActiveTemplate && (
-                <button
-                  onClick={onDuplicateActiveTemplate}
-                  className="w-full flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg border border-slate-200 dark:border-[#333] bg-white dark:bg-[#202226] text-slate-700 dark:text-slate-300 text-[11px] font-medium hover:bg-slate-50 transition-colors"
-                >
-                  <Copy className="w-3.5 h-3.5 text-slate-500" />
-                  <span>تکثیر به عنوان قالب جدید</span>
-                </button>
-              )}
-              {onDeleteActiveTemplate && (
-                <button
-                  onClick={onDeleteActiveTemplate}
-                  className="w-full flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg border border-red-200 dark:border-red-900/60 text-red-600 dark:text-red-400 text-[11px] hover:bg-red-50 transition-colors"
-                >
-                  <Trash2 className="w-3.5 h-3.5" />
-                  <span>حذف این قالب</span>
-                </button>
-              )}
-            </div>
-          )}
-        </div>
-      </div>
-
-      {/* 6. Sidebar Footer Utilities (Theme, Info, Status) */}
-      <div className="p-2.5 border-t border-slate-200/80 dark:border-[#26282c] bg-slate-50/70 dark:bg-[#141517] flex items-center justify-between text-[11px]">
-        {!isCollapsed ? (
-          <>
-            <div className="flex items-center gap-1.5">
-              <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse"></span>
-              <span className="text-[10px] font-bold text-slate-600 dark:text-slate-400">
-                سند #{toPersianDigits(documentNumber)}
-              </span>
-            </div>
-
-            {/* Theme Toggle Buttons */}
-            {onThemeChange && (
-              <div className="flex items-center gap-0.5 bg-slate-200/70 dark:bg-[#202226] p-0.5 rounded-lg">
-                <button
-                  onClick={() => onThemeChange('light')}
-                  className={`p-1 rounded transition-colors ${
-                    themeMode === 'light'
-                      ? 'bg-white text-amber-500 shadow-xs'
-                      : 'text-slate-500 hover:text-slate-800'
-                  }`}
-                  title="تم روشن"
-                >
-                  <Sun className="w-3 h-3" />
-                </button>
-                <button
-                  onClick={() => onThemeChange('dark')}
-                  className={`p-1 rounded transition-colors ${
-                    themeMode === 'dark'
-                      ? 'bg-[#2b2d31] text-[#4cc2ff] shadow-xs'
-                      : 'text-slate-500 hover:text-slate-300'
-                  }`}
-                  title="تم تاریک (Dark Mode)"
-                >
-                  <Moon className="w-3 h-3" />
-                </button>
-                <button
-                  onClick={() => onThemeChange('system')}
-                  className={`p-1 rounded transition-colors ${
-                    themeMode === 'system'
-                      ? 'bg-white dark:bg-[#2b2d31] text-blue-600 dark:text-[#4cc2ff] shadow-xs'
-                      : 'text-slate-500 hover:text-slate-300'
-                  }`}
-                  title="تم خودکار هماهنگ با ویندوز"
-                >
-                  <Laptop className="w-3 h-3" />
-                </button>
-              </div>
-            )}
-          </>
-        ) : (
-          <div className="w-full flex justify-center">
-            {onThemeChange && (
-              <button
-                onClick={() => {
-                  const next = themeMode === 'light' ? 'dark' : themeMode === 'dark' ? 'system' : 'light';
-                  onThemeChange(next);
-                }}
-                className="p-1.5 rounded-lg text-slate-500 hover:text-slate-800 dark:hover:text-slate-200 hover:bg-slate-200 dark:hover:bg-[#202226] transition-colors"
-                title={`تغییر تم (فعلی: ${themeMode})`}
-              >
-                {themeMode === 'dark' ? (
-                  <Moon className="w-4 h-4 text-[#4cc2ff]" />
-                ) : themeMode === 'light' ? (
-                  <Sun className="w-4 h-4 text-amber-500" />
+                <span className="flex items-center gap-2">
+                  <SlidersHorizontal className="w-3.5 h-3.5" />
+                  <span>ابزارهای پیشرفته</span>
+                </span>
+                {showAdvanced ? (
+                  <ChevronUp className="w-4 h-4 text-slate-400" />
                 ) : (
-                  <Laptop className="w-4 h-4 text-blue-500" />
+                  <ChevronDown className="w-4 h-4 text-slate-400" />
                 )}
               </button>
-            )}
-          </div>
-        )}
-      </div>
-    </aside>
+
+              {showAdvanced && (
+                <div className="mt-2 space-y-1.5 text-xs">
+                  <button
+                    type="button"
+                    onClick={() => {
+                      onTabChange('fill');
+                      onToggleFillMode(true);
+                      closeOnMobile();
+                    }}
+                    className={`w-full flex items-center gap-2.5 px-3 py-2 rounded-xl text-right font-medium transition-colors cursor-pointer ${
+                      activeTab === 'fill' && isFillMode
+                        ? 'bg-sky-500/15 text-sky-700 dark:text-sky-300 font-semibold'
+                        : 'text-slate-700 dark:text-slate-300 hover:bg-white/60 dark:hover:bg-white/10'
+                    }`}
+                  >
+                    <Layers className="w-4 h-4 shrink-0" />
+                    <span className="truncate">بوم آزاد (کلاسیک)</span>
+                  </button>
+
+                  <button
+                    type="button"
+                    onClick={() => {
+                      onTabChange('design');
+                      onToggleFillMode(false);
+                      closeOnMobile();
+                    }}
+                    className={`w-full flex items-center gap-2.5 px-3 py-2 rounded-xl text-right font-medium transition-colors cursor-pointer ${
+                      activeTab === 'design' && !isFillMode
+                        ? 'bg-indigo-500/15 text-indigo-700 dark:text-indigo-300 font-semibold'
+                        : 'text-slate-700 dark:text-slate-300 hover:bg-white/60 dark:hover:bg-white/10'
+                    }`}
+                  >
+                    <PenTool className="w-4 h-4 shrink-0" />
+                    <span className="truncate">طراحی ساختار فرم</span>
+                  </button>
+
+                  <button
+                    type="button"
+                    onClick={() => {
+                      onOpenTemplates();
+                      closeOnMobile();
+                    }}
+                    className="w-full flex items-center gap-2.5 px-3 py-2 rounded-xl text-right font-medium text-slate-700 dark:text-slate-300 hover:bg-white/60 dark:hover:bg-white/10 transition-colors cursor-pointer"
+                  >
+                    <LayoutDashboard className="w-4 h-4 shrink-0" />
+                    <span className="truncate">مدیریت قالب‌ها</span>
+                  </button>
+
+                  <button
+                    type="button"
+                    onClick={() => {
+                      onSaveRecord();
+                      closeOnMobile();
+                    }}
+                    className="w-full flex items-center gap-2.5 px-3 py-2 rounded-xl text-right font-medium text-slate-700 dark:text-slate-300 hover:bg-white/60 dark:hover:bg-white/10 transition-colors cursor-pointer"
+                  >
+                    <Save className="w-4 h-4 shrink-0" />
+                    <span className="truncate">ذخیره سریع در بایگانی</span>
+                  </button>
+
+                  <button
+                    type="button"
+                    onClick={() => {
+                      onQuickPrint();
+                      closeOnMobile();
+                    }}
+                    className="w-full flex items-center gap-2.5 px-3 py-2 rounded-xl text-right font-medium text-slate-700 dark:text-slate-300 hover:bg-white/60 dark:hover:bg-white/10 transition-colors cursor-pointer"
+                  >
+                    <Printer className="w-4 h-4 shrink-0" />
+                    <span className="truncate">چاپ سریع</span>
+                  </button>
+
+                  {/* Quick template switcher inside Advanced */}
+                  <div className="pt-2 border-t border-white/50 dark:border-white/10 space-y-1">
+                    <div className="px-2 text-[10px] font-semibold text-slate-400 dark:text-slate-500">
+                      انتخاب سریع نوع برگه
+                    </div>
+                    {quickTemplates.map((vt) => {
+                      const matching = templates.find((t) => t.id === vt.id);
+                      if (!matching) return null;
+                      const isActive = activeTemplateId === vt.id;
+                      return (
+                        <button
+                          key={vt.id}
+                          type="button"
+                          onClick={() => {
+                            onSelectTemplate(matching);
+                            closeOnMobile();
+                          }}
+                          className={`w-full flex items-center gap-2 px-2.5 py-1.5 rounded-xl text-right transition-colors cursor-pointer ${
+                            isActive
+                              ? 'bg-sky-500/15 text-sky-700 dark:text-sky-300 font-semibold'
+                              : 'text-slate-600 dark:text-slate-300 hover:bg-white/50 dark:hover:bg-white/10'
+                          }`}
+                        >
+                          {vt.icon}
+                          <span className="truncate">{vt.title}</span>
+                        </button>
+                      );
+                    })}
+                  </div>
+
+                  {/* Contextual Design / Archive actions */}
+                  {activeTab === 'database' && (
+                    <div className="pt-2 border-t border-white/50 dark:border-white/10 space-y-1">
+                      <button
+                        type="button"
+                        onClick={() => {
+                          onExportCsv();
+                          closeOnMobile();
+                        }}
+                        className="w-full flex items-center gap-2 px-2.5 py-1.5 rounded-xl text-emerald-700 dark:text-emerald-300 hover:bg-emerald-500/10 transition-colors cursor-pointer"
+                      >
+                        <FileSpreadsheet className="w-3.5 h-3.5" />
+                        <span>خروجی اکسل</span>
+                      </button>
+                      <div className="grid grid-cols-2 gap-1">
+                        <button
+                          type="button"
+                          onClick={() => {
+                            onExportBackup();
+                            closeOnMobile();
+                          }}
+                          className="flex items-center justify-center gap-1 py-1.5 rounded-xl liquid-glass-well text-[11px] text-slate-700 dark:text-slate-200 cursor-pointer"
+                        >
+                          <Download className="w-3 h-3" />
+                          <span>پشتیبان</span>
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => {
+                            onImportBackup();
+                            closeOnMobile();
+                          }}
+                          className="flex items-center justify-center gap-1 py-1.5 rounded-xl liquid-glass-well text-[11px] text-slate-700 dark:text-slate-200 cursor-pointer"
+                        >
+                          <Upload className="w-3 h-3" />
+                          <span>بازیابی</span>
+                        </button>
+                      </div>
+                    </div>
+                  )}
+
+                  {activeTab === 'design' && (
+                    <div className="pt-2 border-t border-white/50 dark:border-white/10 space-y-1">
+                      {onSaveActiveTemplate && (
+                        <button
+                          type="button"
+                          onClick={() => {
+                            onSaveActiveTemplate();
+                            closeOnMobile();
+                          }}
+                          className="w-full flex items-center gap-2 px-2.5 py-1.5 rounded-xl text-sky-700 dark:text-sky-300 hover:bg-sky-500/10 transition-colors cursor-pointer"
+                        >
+                          <Save className="w-3.5 h-3.5" />
+                          <span>ذخیره قالب</span>
+                        </button>
+                      )}
+                      {onDuplicateActiveTemplate && (
+                        <button
+                          type="button"
+                          onClick={() => {
+                            onDuplicateActiveTemplate();
+                            closeOnMobile();
+                          }}
+                          className="w-full flex items-center gap-2 px-2.5 py-1.5 rounded-xl text-slate-700 dark:text-slate-300 hover:bg-white/50 dark:hover:bg-white/10 transition-colors cursor-pointer"
+                        >
+                          <Copy className="w-3.5 h-3.5" />
+                          <span>کپی قالب</span>
+                        </button>
+                      )}
+                      {onDeleteActiveTemplate && (
+                        <button
+                          type="button"
+                          onClick={() => {
+                            onDeleteActiveTemplate();
+                            closeOnMobile();
+                          }}
+                          className="w-full flex items-center gap-2 px-2.5 py-1.5 rounded-xl text-red-600 dark:text-red-400 hover:bg-red-500/10 transition-colors cursor-pointer"
+                        >
+                          <Trash2 className="w-3.5 h-3.5" />
+                          <span>حذف قالب</span>
+                        </button>
+                      )}
+                      <button
+                        type="button"
+                        onClick={() => {
+                          onResetCanvas();
+                          closeOnMobile();
+                        }}
+                        className="w-full flex items-center gap-2 px-2.5 py-1.5 rounded-xl text-red-600 dark:text-red-400 hover:bg-red-500/10 transition-colors cursor-pointer"
+                      >
+                        <RotateCcw className="w-3.5 h-3.5" />
+                        <span>پاک‌سازی بوم</span>
+                      </button>
+                    </div>
+                  )}
+                </div>
+              )}
+            </div>
+          )}
+        </div>
+
+        {/* Clean Sidebar Footer: Appearance Switch */}
+        <div className="p-3 border-t border-white/60 dark:border-white/10 flex items-center justify-between gap-2">
+          {!effectiveCollapsed ? (
+            <>
+              <span className="text-[11px] font-medium text-slate-500 dark:text-slate-400">
+                نمای صفحه
+              </span>
+              {onThemeChange && (
+                <div className="flex items-center gap-0.5 liquid-glass-well p-0.5 rounded-xl">
+                  <button
+                    type="button"
+                    onClick={() => onThemeChange('light')}
+                    aria-label="حالت روز"
+                    title="حالت روز"
+                    className={`p-1.5 rounded-lg transition-colors cursor-pointer ${
+                      themeMode === 'light'
+                        ? 'bg-white text-amber-500 shadow-xs'
+                        : 'text-slate-500 hover:text-slate-800 dark:text-slate-400'
+                    }`}
+                  >
+                    <Sun className="w-3.5 h-3.5" />
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => onThemeChange('dark')}
+                    aria-label="حالت شب"
+                    title="حالت شب"
+                    className={`p-1.5 rounded-lg transition-colors cursor-pointer ${
+                      themeMode === 'dark'
+                        ? 'bg-slate-800 text-sky-300 shadow-xs'
+                        : 'text-slate-500 hover:text-slate-800 dark:text-slate-400'
+                    }`}
+                  >
+                    <Moon className="w-3.5 h-3.5" />
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => onThemeChange('system')}
+                    aria-label="هماهنگ با سیستم"
+                    title="هماهنگ با سیستم"
+                    className={`p-1.5 rounded-lg transition-colors cursor-pointer ${
+                      themeMode === 'system'
+                        ? 'bg-white dark:bg-slate-800 text-sky-600 dark:text-sky-300 shadow-xs'
+                        : 'text-slate-500 hover:text-slate-800 dark:text-slate-400'
+                    }`}
+                  >
+                    <Laptop className="w-3.5 h-3.5" />
+                  </button>
+                </div>
+              )}
+            </>
+          ) : (
+            <div className="w-full flex justify-center">
+              {onThemeChange && (
+                <button
+                  type="button"
+                  onClick={() => {
+                    const next = themeMode === 'light' ? 'dark' : themeMode === 'dark' ? 'system' : 'light';
+                    onThemeChange(next);
+                  }}
+                  aria-label="تغییر نمای صفحه"
+                  className="p-2 rounded-xl text-slate-600 dark:text-slate-300 hover:bg-white/60 dark:hover:bg-white/10 transition-colors cursor-pointer"
+                >
+                  {themeMode === 'dark' ? (
+                    <Moon className="w-4 h-4 text-sky-300" />
+                  ) : themeMode === 'light' ? (
+                    <Sun className="w-4 h-4 text-amber-500" />
+                  ) : (
+                    <Laptop className="w-4 h-4 text-sky-600" />
+                  )}
+                </button>
+              )}
+            </div>
+          )}
+        </div>
+      </aside>
+    </>
   );
 };

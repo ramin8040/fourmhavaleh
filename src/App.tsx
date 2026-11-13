@@ -52,7 +52,9 @@ import { TemplatesModal } from './components/TemplatesModal';
 import { ImageToFormModal } from './components/ImageToFormModal';
 import { KeyboardShortcutsModal } from './components/KeyboardShortcutsModal';
 import { OfficialPrintDocument } from './components/OfficialPrintDocument';
-import { StatusBar } from './components/StatusBar';
+import { DocumentIssueWizard } from './components/DocumentIssueWizard';
+import { WizardStep, initializeWizardDataForTemplate } from './utils/wizardLogic';
+import { CheckCircle2 } from 'lucide-react';
 
 export default function App() {
   // Theme Mode (Windows 11 Fluent Dark / Light / System)
@@ -64,7 +66,8 @@ export default function App() {
   const [activeTemplate, setActiveTemplate] = useState<FormTemplate>(BLANK_FORM_TEMPLATE);
   const [records, setRecords] = useState<FormRecord[]>([]);
   const [selectedFieldId, setSelectedFieldId] = useState<string | null>(null);
-  const [activeTab, setActiveTab] = useState<RibbonTab>('fill');
+  const [activeTab, setActiveTab] = useState<RibbonTab>('wizard');
+  const [wizardStep, setWizardStep] = useState<WizardStep>(1);
   const [isFillMode, setIsFillMode] = useState<boolean>(true);
   const [zoomScale, setZoomScale] = useState<number>(1.0);
 
@@ -79,6 +82,8 @@ export default function App() {
   const [isAutoSaving, setIsAutoSaving] = useState<boolean>(false);
 
   // Modals & Feedback
+  const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
+  const [mobileDesignPanel, setMobileDesignPanel] = useState<'none' | 'toolbox' | 'inspector'>('none');
   const [isPrintModalOpen, setIsPrintModalOpen] = useState(false);
   const [isTemplatesModalOpen, setIsTemplatesModalOpen] = useState(false);
   const [isImageToFormModalOpen, setIsImageToFormModalOpen] = useState(false);
@@ -119,10 +124,10 @@ export default function App() {
     applyThemeToDocument(dark);
     showToast(
       newMode === 'system'
-        ? 'تم ویندوز: هماهنگ با تم سیستم'
+        ? 'نمای صفحه هماهنگ با دستگاه شد'
         : newMode === 'dark'
-        ? 'تم ویندوز: حالت تاریک (Dark Mode)'
-        : 'تم ویندوز: حالت روشن (Light Mode)'
+        ? 'نمای شب فعال شد'
+        : 'نمای روشن فعال شد'
     );
   };
 
@@ -133,9 +138,13 @@ export default function App() {
     const loadedRecords = loadAllRecords();
     setRecords(loadedRecords);
 
+    const isAutostart =
+      typeof window !== 'undefined' &&
+      new URLSearchParams(window.location.search).get('autostart') === '1';
+
     // Check for existing auto-saved draft from sessionStorage
     const draft = loadFormSessionDraft();
-    if (draft && draft.templateId) {
+    if (!isAutostart && draft && draft.templateId) {
       const draftTpl = loadedTemplates.find((t) => t.id === draft.templateId);
       if (draftTpl) {
         setActiveTemplate(draftTpl);
@@ -144,7 +153,8 @@ export default function App() {
         setSignatureData(draft.signatureData || {});
         setCurrentRecordId(draft.currentRecordId || null);
         setIsFillMode(true);
-        setActiveTab('fill');
+        setActiveTab('wizard');
+        setWizardStep(2);
         if (draft.savedAt) {
           const time = new Date(draft.savedAt).toLocaleTimeString('fa-IR', {
             hour: '2-digit',
@@ -158,17 +168,20 @@ export default function App() {
       }
     }
 
-    // Default to the official dispatch voucher form in fill mode
-    const dispatchVoucher = loadedTemplates.find((t) => t.id === 'preset_dispatch_voucher');
+    // Default to the official dispatch voucher template in Wizard mode
+    const dispatchVoucher =
+      loadedTemplates.find((t) => t.id === 'preset_dispatch_voucher') ||
+      loadedTemplates.find((t) => t.id === 'blank-form-default') ||
+      loadedTemplates[0];
     if (dispatchVoucher) {
+      const init = initializeWizardDataForTemplate(dispatchVoucher);
       setActiveTemplate(dispatchVoucher);
+      setFormData(init.formData);
+      setTableData(init.tableData);
+      setSignatureData(init.signatureData);
       setIsFillMode(true);
-      setActiveTab('fill');
-    } else {
-      const blank = loadedTemplates.find((t) => t.id === 'blank-form-default') || loadedTemplates[0];
-      if (blank) {
-        setActiveTemplate(blank);
-      }
+      setActiveTab('wizard');
+      setWizardStep(isAutostart ? 2 : 1);
     }
   }, []);
 
@@ -409,6 +422,8 @@ export default function App() {
         }
       } else if (e.key === 'Escape') {
         setSelectedFieldId(null);
+        setIsMobileMenuOpen(false);
+        setMobileDesignPanel('none');
         setIsPrintModalOpen(false);
         setIsTemplatesModalOpen(false);
         setIsImageToFormModalOpen(false);
@@ -582,18 +597,19 @@ export default function App() {
   };
 
   // RECORD MANAGEMENT (SUBMISSIONS)
-  const handleSaveRecord = () => {
+  const handleSaveRecord = (): FormRecord => {
     const recordIndex = records.length + 1;
     const prefix = activeTemplate.title.includes('فاکتور') ? 'INV' : 'DOC';
     const recNumber = currentRecordId
       ? records.find((r) => r.id === currentRecordId)?.recordNumber || generateRecordNumber(recordIndex, prefix)
       : generateRecordNumber(recordIndex, prefix);
 
+    const existingRec = currentRecordId ? records.find((r) => r.id === currentRecordId) : null;
     const newRecord: FormRecord = {
       id: currentRecordId || `rec_${Date.now()}`,
       formId: activeTemplate.id,
       recordNumber: recNumber,
-      createdAt: new Date().toISOString(),
+      createdAt: existingRec?.createdAt || new Date().toISOString(),
       updatedAt: new Date().toISOString(),
       data: { ...formData },
       tableData: { ...tableData },
@@ -607,6 +623,42 @@ export default function App() {
     setRecords(loadAllRecords());
     setCurrentRecordId(newRecord.id);
     showToast(`رکورد ${recNumber} با موفقیت در دیتابیس ثبت شد.`);
+    return newRecord;
+  };
+
+  const handleSelectWizardTemplate = (tpl: FormTemplate) => {
+    const hasExistingData =
+      Object.keys(formData).length > 0 ||
+      Object.keys(tableData).length > 0 ||
+      Object.keys(signatureData).length > 0;
+    if (tpl.id !== activeTemplate.id || !hasExistingData) {
+      const init = initializeWizardDataForTemplate(tpl);
+      setActiveTemplate(tpl);
+      setFormData(init.formData);
+      setTableData(init.tableData);
+      setSignatureData(init.signatureData);
+      setCurrentRecordId(null);
+      clearFormSessionDraft();
+      setLastAutoSavedTime(null);
+    } else {
+      setActiveTemplate(tpl);
+    }
+    setSelectedFieldId(null);
+    setIsFillMode(true);
+  };
+
+  const handleStartNewWizard = () => {
+    const init = initializeWizardDataForTemplate(activeTemplate);
+    setFormData(init.formData);
+    setTableData(init.tableData);
+    setSignatureData(init.signatureData);
+    setCurrentRecordId(null);
+    clearFormSessionDraft();
+    setLastAutoSavedTime(null);
+    setIsFillMode(true);
+    setActiveTab('wizard');
+    setWizardStep(1);
+    showToast('ویزارد صدور سند جدید آماده شد.');
   };
 
   const handleLoadRecord = (record: FormRecord) => {
@@ -668,15 +720,7 @@ export default function App() {
   };
 
   const handleNewRecord = () => {
-    setFormData({});
-    setTableData({});
-    setSignatureData({});
-    setCurrentRecordId(null);
-    clearFormSessionDraft();
-    setLastAutoSavedTime(null);
-    setIsFillMode(true);
-    setActiveTab('fill');
-    showToast('فرم برای ثبت رکورد جدید خالی شد.');
+    handleStartNewWizard();
   };
 
   // EXPORT / BACKUP HANDLERS
@@ -733,8 +777,8 @@ export default function App() {
 
   return (
     <>
-      <div id="app-root-container" className="h-screen w-screen flex flex-col bg-[#f0f2f5] dark:bg-[#18181a] overflow-hidden text-slate-800 dark:text-slate-100 select-none transition-colors" dir="rtl">
-        {/* 1. Windows 11 TitleBar */}
+      <div id="app-root-container" className="h-dvh w-full flex flex-col liquid-bg-mesh overflow-hidden text-slate-900 dark:text-slate-100 select-none transition-colors" dir="rtl">
+        {/* Top Liquid Glass Navigation Bar */}
       <TitleBar
         documentTitle={activeTemplate.title}
         onTitleChange={(newTitle) => {
@@ -749,26 +793,43 @@ export default function App() {
         themeMode={themeMode}
         onThemeChange={handleThemeChange}
         isDark={isDark}
+        isMobileMenuOpen={isMobileMenuOpen}
+        onToggleMobileMenu={() => setIsMobileMenuOpen((prev) => !prev)}
+        activeTab={activeTab}
+        onTabChange={(tab) => {
+          setActiveTab(tab);
+          if (tab === 'wizard') setIsFillMode(true);
+          setMobileDesignPanel('none');
+        }}
+        onOpenImageToForm={() => setIsImageToFormModalOpen(true)}
       />
 
-      {/* 2. Main Layout Container: Vertical Sidebar (Right in RTL) + Main Workspace (Left) */}
-      <div className="flex-1 flex overflow-hidden relative">
+      {/* Main Layout Container: Vertical Sidebar (Right in RTL) + Main Workspace (Left) */}
+      <div className="flex-1 flex overflow-hidden relative min-w-0">
         {/* Vertical Sidebar Navigation (منوی عمودی از بغل با استایل مدرن و رنگ‌های زنده) */}
         <AppVerticalSidebar
           activeTab={activeTab}
-          onTabChange={setActiveTab}
+          onTabChange={(tab) => {
+            setActiveTab(tab);
+            setMobileDesignPanel('none');
+          }}
           isFillMode={isFillMode}
           onToggleFillMode={(fillMode) => {
             setIsFillMode(fillMode);
-            if (fillMode) setSelectedFieldId(null);
+            if (fillMode) {
+              setSelectedFieldId(null);
+              setMobileDesignPanel('none');
+            }
           }}
           templates={templates}
           activeTemplateId={activeTemplate.id}
           onSelectTemplate={(tpl) => {
-            setActiveTemplate(tpl);
-            setIsFillMode(true);
-            setActiveTab('fill');
-            setSelectedFieldId(null);
+            handleSelectWizardTemplate(tpl);
+            if (activeTab === 'wizard') {
+              setWizardStep(2);
+            } else {
+              setActiveTab('fill');
+            }
             showToast(`سند «${tpl.title}» بارگذاری شد.`);
           }}
           onSaveRecord={handleSaveRecord}
@@ -801,54 +862,62 @@ export default function App() {
             formData['f_doc_no'] ||
             '۱'
           }
+          isMobileOpen={isMobileMenuOpen}
+          onCloseMobile={() => setIsMobileMenuOpen(false)}
         />
 
         {/* Central Workspace & Context Column */}
-        <div className="flex-1 flex flex-col overflow-hidden min-w-0 bg-[#f0f2f5] dark:bg-[#121316]">
-          {/* Top Context & Specs Bar */}
-          <CanvasTopBar
-            activeTemplate={activeTemplate}
-            isFillMode={isFillMode}
-            onToggleFillMode={(fillMode) => {
-              setIsFillMode(fillMode);
-              if (fillMode) setSelectedFieldId(null);
-            }}
-            paperSize={activeTemplate.paperSize}
-            onPaperSizeChange={(paperSize: PaperSize) => {
-              const updated = { ...activeTemplate, paperSize };
-              setActiveTemplate(updated);
-              saveTemplate(updated);
-            }}
-            orientation={activeTemplate.orientation}
-            onOrientationChange={(orientation: PageOrientation) => {
-              const updated = { ...activeTemplate, orientation };
-              setActiveTemplate(updated);
-              saveTemplate(updated);
-            }}
-            showPageBorders={activeTemplate.showPageBorders ?? true}
-            onTogglePageBorders={() => {
-              const updated = { ...activeTemplate, showPageBorders: !activeTemplate.showPageBorders };
-              setActiveTemplate(updated);
-              saveTemplate(updated);
-            }}
-            showWatermark={activeTemplate.showWatermark ?? false}
-            onToggleWatermark={() => {
-              const updated = { ...activeTemplate, showWatermark: !activeTemplate.showWatermark };
-              setActiveTemplate(updated);
-              saveTemplate(updated);
-            }}
-            zoomScale={zoomScale}
-            onZoomChange={setZoomScale}
-            documentNumber={
-              activeTemplate.fields.find((f) => f.documentNumber)?.documentNumber ||
-              formData['f_doc_no'] ||
-              '۱'
-            }
-            lastAutoSavedTime={lastAutoSavedTime}
-            isAutoSaving={isAutoSaving}
-            onQuickPrint={() => handleDirectPrint()}
-            onOpenShortcuts={() => setIsShortcutsModalOpen(true)}
-          />
+        <div className="flex-1 flex flex-col overflow-hidden min-w-0 lg:m-3 lg:rounded-3xl liquid-glass">
+          {/* Top Context & Specs Bar (shown only in classic canvas & design views) */}
+          {(activeTab === 'fill' || activeTab === 'design') && (
+            <CanvasTopBar
+              activeTemplate={activeTemplate}
+              isFillMode={isFillMode}
+              onToggleFillMode={(fillMode) => {
+                setIsFillMode(fillMode);
+                if (fillMode) setSelectedFieldId(null);
+              }}
+              paperSize={activeTemplate.paperSize}
+              onPaperSizeChange={(paperSize: PaperSize) => {
+                const updated = { ...activeTemplate, paperSize };
+                setActiveTemplate(updated);
+                saveTemplate(updated);
+              }}
+              orientation={activeTemplate.orientation}
+              onOrientationChange={(orientation: PageOrientation) => {
+                const updated = { ...activeTemplate, orientation };
+                setActiveTemplate(updated);
+                saveTemplate(updated);
+              }}
+              showPageBorders={activeTemplate.showPageBorders ?? true}
+              onTogglePageBorders={() => {
+                const updated = { ...activeTemplate, showPageBorders: !activeTemplate.showPageBorders };
+                setActiveTemplate(updated);
+                saveTemplate(updated);
+              }}
+              showWatermark={activeTemplate.showWatermark ?? false}
+              onToggleWatermark={() => {
+                const updated = { ...activeTemplate, showWatermark: !activeTemplate.showWatermark };
+                setActiveTemplate(updated);
+                saveTemplate(updated);
+              }}
+              zoomScale={zoomScale}
+              onZoomChange={setZoomScale}
+              documentNumber={
+                activeTemplate.fields.find((f) => f.documentNumber)?.documentNumber ||
+                formData['f_doc_no'] ||
+                '۱'
+              }
+              lastAutoSavedTime={lastAutoSavedTime}
+              isAutoSaving={isAutoSaving}
+              onQuickPrint={() => handleDirectPrint()}
+              onOpenShortcuts={() => setIsShortcutsModalOpen(true)}
+              mobileDesignPanel={mobileDesignPanel}
+              onToggleMobileDesignPanel={(panel) =>
+                setMobileDesignPanel((prev) => (prev === panel ? 'none' : panel))
+              }
+            />
+          )}
 
           {/* Main Visual Views Container */}
           <div className="flex-1 flex overflow-hidden relative">
@@ -866,25 +935,80 @@ export default function App() {
             onImportBackupFile={handleImportBackupFile}
             onNewRecord={handleNewRecord}
           />
+        ) : activeTab === 'wizard' ? (
+          <DocumentIssueWizard
+            templates={templates}
+            activeTemplate={activeTemplate}
+            records={records}
+            step={wizardStep}
+            onStepChange={setWizardStep}
+            formData={formData}
+            tableData={tableData}
+            signatureData={signatureData}
+            currentRecordId={currentRecordId}
+            onSelectWizardTemplate={handleSelectWizardTemplate}
+            onFormDataChange={(key, val) =>
+              setFormData((prev) => ({ ...prev, [key]: val }))
+            }
+            onTableDataChange={(fId, rows) =>
+              setTableData((prev) => ({ ...prev, [fId]: rows }))
+            }
+            onSignatureDataChange={(fId, url) =>
+              setSignatureData((prev) => ({ ...prev, [fId]: url }))
+            }
+            onSaveRecordToArchive={handleSaveRecord}
+            onTriggerPrint={(settings) => {
+              setActivePrintSettings(settings);
+              setTimeout(() => {
+                window.print();
+              }, 150);
+            }}
+            onStartNewWizard={handleStartNewWizard}
+            onSwitchToClassicCanvas={() => {
+              setIsFillMode(true);
+              setActiveTab('fill');
+            }}
+            onOpenImageToForm={() => setIsImageToFormModalOpen(true)}
+            onUpdateActiveTemplate={handleUpdateTemplate}
+          />
         ) : (
           /* VIEW 2: Visual Designer / Form Canvas */
           <>
-            {/* Left Toolbox Palette (Only visible in Design mode) */}
+            {/* Mobile / Tablet backdrop for Design mode drawers */}
+            {!isFillMode && mobileDesignPanel !== 'none' && (
+              <div
+                aria-hidden="true"
+                onClick={() => setMobileDesignPanel('none')}
+                className="fixed inset-0 z-30 bg-black/45 backdrop-blur-2xs lg:hidden"
+              />
+            )}
+
+            {/* Right Toolbox Palette (Only visible in Design mode) */}
             {!isFillMode && (
-              <ElementToolbox onAddField={handleAddField} />
+              <ElementToolbox
+                onAddField={(type) => {
+                  handleAddField(type);
+                  setMobileDesignPanel('none');
+                }}
+                isMobileOpen={mobileDesignPanel === 'toolbox'}
+                onCloseMobile={() => setMobileDesignPanel('none')}
+              />
             )}
 
             {/* Central Visual Sheet Canvas */}
             <FormCanvas
               template={activeTemplate}
               selectedFieldId={selectedFieldId}
-              onSelectField={setSelectedFieldId}
+              onSelectField={(id) => {
+                setSelectedFieldId(id);
+              }}
               onUpdateField={handleUpdateField}
               onDeleteField={handleDeleteField}
               onDuplicateField={handleDuplicateField}
               onMoveField={handleMoveField}
               isFillMode={isFillMode}
               zoomScale={zoomScale}
+              onZoomChange={setZoomScale}
               formData={formData}
               onFormDataChange={(key, val) =>
                 setFormData((prev) => ({ ...prev, [key]: val }))
@@ -900,7 +1024,7 @@ export default function App() {
               records={records}
             />
 
-            {/* Right Properties Inspector (Only visible in Design mode) */}
+            {/* Left Properties Inspector (Only visible in Design mode) */}
             {!isFillMode && (
               <PropertyInspector
                 field={selectedField}
@@ -908,7 +1032,12 @@ export default function App() {
                 onDeleteField={handleDeleteField}
                 onDuplicateField={handleDuplicateField}
                 onMoveField={handleMoveField}
-                onClose={() => setSelectedFieldId(null)}
+                onClose={() => {
+                  setSelectedFieldId(null);
+                  setMobileDesignPanel('none');
+                }}
+                isMobileOpen={mobileDesignPanel === 'inspector'}
+                onCloseMobile={() => setMobileDesignPanel('none')}
               />
             )}
           </>
@@ -916,23 +1045,6 @@ export default function App() {
           </div>
         </div>
       </div>
-
-      {/* 4. Windows 11 Status Bar */}
-      <StatusBar
-        paperSize={activeTemplate.paperSize}
-        orientation={activeTemplate.orientation}
-        fieldsCount={activeTemplate.fields.length}
-        recordsCount={records.length}
-        zoomScale={zoomScale}
-        onZoomChange={setZoomScale}
-        isFillMode={isFillMode}
-        selectedFieldLabel={selectedField?.label}
-        lastAutoSavedTime={lastAutoSavedTime}
-        isAutoSaving={isAutoSaving}
-        themeMode={themeMode}
-        onThemeChange={handleThemeChange}
-        isDark={isDark}
-      />
 
       {/* Modals */}
       <PrintPreviewModal
@@ -973,11 +1085,14 @@ export default function App() {
         onClose={() => setIsShortcutsModalOpen(false)}
       />
 
-      {/* Windows Toast Notification */}
+      {/* Liquid Glass Toast Notification */}
       {toastMessage && (
-        <div className="fixed bottom-10 left-6 z-50 bg-[#0067C0] text-white px-4 py-2.5 rounded-lg shadow-lg text-xs flex items-center gap-2 border border-blue-400">
-          <span className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse"></span>
-          <span>{toastMessage}</span>
+        <div
+          role="status"
+          className="fixed bottom-5 left-4 right-4 sm:right-auto sm:left-6 z-50 liquid-glass-elevated px-4 py-3 rounded-2xl text-xs font-semibold text-slate-900 dark:text-white flex items-center gap-2.5"
+        >
+          <CheckCircle2 className="w-4 h-4 text-emerald-600 dark:text-emerald-400 shrink-0" />
+          <span className="truncate">{toastMessage}</span>
         </div>
       )}
     </div>

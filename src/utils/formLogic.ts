@@ -1,4 +1,4 @@
-import { TableItemRow, FormRecord } from '../types/form';
+import { TableItemRow, FormRecord, FormTemplate } from '../types/form';
 import { parseShamsiString, jalaliToGregorian } from './shamsiCalendar';
 
 // Convert English numbers to Persian digits
@@ -356,5 +356,205 @@ export function filterFormRecords(
     return true;
   });
 }
+
+export interface RecordQuickPreviewItem {
+  rowNumber: number;
+  productCode: string;
+  description: string;
+  quantity: number;
+  unit: string;
+  serialNumber: string;
+  totalPrice: number;
+}
+
+export interface RecordQuickPreviewData {
+  title: string;
+  formCode: string;
+  recordNumber: string;
+  docNumber: string;
+  docDate: string;
+  counterparty: string;
+  statusLabel: string;
+  fields: Array<{ label: string; value: string }>;
+  items: RecordQuickPreviewItem[];
+  totalItemsCount: number;
+  remainingItemsCount: number;
+  totalQuantity: number;
+  totalAmount: number;
+  signedCount: number;
+}
+
+/**
+ * Extracts structured, concise preview information from a FormRecord and its FormTemplate
+ * so hover popovers can display a fast, legible snapshot without loading the full canvas.
+ */
+export function extractRecordPreviewData(
+  record: FormRecord,
+  template: FormTemplate
+): RecordQuickPreviewData {
+  const headerField = template.fields.find((f) => f.type === 'header_banner');
+  const title = headerField?.headerTitle || template.title || 'سند انبار';
+  const formCode = headerField?.formCode || '';
+
+  const docNoRaw =
+    record.data?.['f_doc_no'] ||
+    (headerField ? record.data?.[`${headerField.id}_doc_no`] : undefined) ||
+    record.data?.['documentNumber'] ||
+    record.data?.['doc_no'] ||
+    record.recordNumber;
+  const docNumber = docNoRaw ? String(docNoRaw) : record.recordNumber;
+
+  const docDateRaw =
+    record.data?.['f_doc_date'] ||
+    (headerField ? record.data?.[`${headerField.id}_header_date`] : undefined) ||
+    record.data?.['doc_date'] ||
+    (record.createdAt ? new Date(record.createdAt).toLocaleDateString('fa-IR') : '—');
+  const docDate = docDateRaw ? String(docDateRaw) : '—';
+
+  // Counterparty / Customer / Requesting Unit lookup
+  const counterpartyKeys = [
+    'f_customer',
+    'customerName',
+    'buyerName',
+    'receiverName',
+    'recipient',
+    'counterparty',
+    'f_req_unit',
+    ...(headerField ? [`${headerField.id}_req_unit`] : []),
+  ];
+  let counterparty = '';
+  for (const key of counterpartyKeys) {
+    const v = record.data?.[key];
+    if (v && String(v).trim() !== '') {
+      counterparty = String(v).trim();
+      break;
+    }
+  }
+  if (!counterparty) {
+    const matchedField = template.fields.find((f) => {
+      if (['divider', 'header_banner', 'table', 'signature', 'qrcode'].includes(f.type)) return false;
+      const lbl = normalizeSearchText(f.label);
+      return (
+        lbl.includes('مشتری') ||
+        lbl.includes('خریدار') ||
+        lbl.includes('تحویل') ||
+        lbl.includes('واحد') ||
+        lbl.includes('طرف حساب') ||
+        lbl.includes('شرکت')
+      );
+    });
+    if (matchedField) {
+      const val = record.data?.[matchedField.id];
+      if (val && String(val).trim() !== '') {
+        counterparty = String(val).trim();
+      }
+    }
+  }
+
+  // Extract other filled fields (up to 4)
+  const fields: Array<{ label: string; value: string }> = [];
+  const skippedKeys = new Set(['f_doc_no', 'f_doc_date', ...counterpartyKeys]);
+
+  for (const field of template.fields) {
+    if (['divider', 'header_banner', 'table', 'signature', 'qrcode'].includes(field.type)) continue;
+    if (skippedKeys.has(field.id)) continue;
+
+    const rawVal = record.data?.[field.id];
+    if (rawVal === undefined || rawVal === null) continue;
+    if (typeof rawVal === 'boolean') {
+      if (rawVal) {
+        fields.push({ label: field.label, value: 'تأیید شده' });
+      }
+    } else if (String(rawVal).trim() !== '') {
+      const formattedVal =
+        field.type === 'currency'
+          ? `${formatCurrency(rawVal)} ${field.unitLabel || 'ریال'}`
+          : toPersianDigits(String(rawVal).trim());
+      fields.push({ label: field.label, value: formattedVal });
+    }
+    if (fields.length >= 4) break;
+  }
+
+  // Fallback: if template fields didn't match record.data keys (e.g. ad-hoc keys like letterNumber)
+  if (fields.length === 0 && record.data) {
+    for (const [k, v] of Object.entries(record.data)) {
+      if (skippedKeys.has(k) || k.endsWith('_doc_no') || k.endsWith('_header_date') || k.endsWith('_req_unit')) {
+        continue;
+      }
+      if (v !== undefined && v !== null && typeof v !== 'boolean' && String(v).trim() !== '') {
+        fields.push({ label: k === 'letterNumber' ? 'شماره نامه' : k, value: toPersianDigits(String(v).trim()) });
+      }
+      if (fields.length >= 4) break;
+    }
+  }
+
+  // Extract filled table rows
+  const allRows: RecordQuickPreviewItem[] = [];
+  let totalQuantity = 0;
+  let totalAmount = 0;
+
+  if (record.tableData) {
+    for (const rows of Object.values(record.tableData)) {
+      if (!Array.isArray(rows)) continue;
+      for (const row of rows) {
+        const hasContent =
+          (row.description && row.description.trim() !== '') ||
+          (row.productCode && row.productCode.trim() !== '') ||
+          (row.serialNumber && row.serialNumber.trim() !== '') ||
+          Number(row.quantity) > 0;
+        if (!hasContent) continue;
+
+        const qty = Number(row.quantity) || 0;
+        const total = Number(row.totalPrice) || calculateRowTotal(qty, Number(row.unitPrice) || 0);
+        totalQuantity += qty;
+        totalAmount += total;
+
+        allRows.push({
+          rowNumber: row.rowNumber || allRows.length + 1,
+          productCode: row.productCode?.trim() || '',
+          description: row.description?.trim() || row.model?.trim() || 'کالا بدون شرح',
+          quantity: qty,
+          unit: row.unit?.trim() || 'عدد',
+          serialNumber: row.serialNumber?.trim() || '',
+          totalPrice: total,
+        });
+      }
+    }
+  }
+
+  const maxPreviewItems = 5;
+  const items = allRows.slice(0, maxPreviewItems);
+  const totalItemsCount = allRows.length;
+  const remainingItemsCount = Math.max(0, totalItemsCount - maxPreviewItems);
+
+  const signedCount = record.signatureData
+    ? Object.values(record.signatureData).filter((v) => typeof v === 'string' && v.trim() !== '').length
+    : 0;
+
+  const statusLabel =
+    record.status === 'printed'
+      ? 'چاپ‌شده'
+      : record.status === 'draft'
+      ? 'پیش‌نویس'
+      : 'ثبت نهایی';
+
+  return {
+    title,
+    formCode,
+    recordNumber: record.recordNumber,
+    docNumber,
+    docDate,
+    counterparty,
+    statusLabel,
+    fields,
+    items,
+    totalItemsCount,
+    remainingItemsCount,
+    totalQuantity,
+    totalAmount,
+    signedCount,
+  };
+}
+
 
 

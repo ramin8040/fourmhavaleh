@@ -1,4 +1,4 @@
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useRef, useEffect } from 'react';
 import { 
   FormTemplate, 
   FormField, 
@@ -26,12 +26,24 @@ import {
   ArrowUp, 
   ArrowDown, 
   Copy,
-  Check
+  Check,
+  ZoomIn,
+  ZoomOut,
+  RotateCcw
 } from 'lucide-react';
 import { SignaturePadModal } from './SignaturePadModal';
 import { ShamsiDatePicker } from './ShamsiDatePicker';
 import { ProductAutocompleteCell } from './ProductAutocompleteCell';
 import { extractProductHistory } from '../utils/productSuggestions';
+import { useViewportWidth } from '../utils/useViewportWidth';
+import { calculateCanvasAutoScale, getPaperPixelWidth } from '../utils/responsiveLayout';
+import { resolveHeaderLogo } from '../utils/companyBrand';
+import {
+  resolveTableStyle,
+  getTableWrapperStyle,
+  getHeaderCellCssStyle,
+  getBodyCellCssStyle,
+} from '../utils/tableStyling';
 
 interface FormCanvasProps {
   template: FormTemplate;
@@ -43,6 +55,7 @@ interface FormCanvasProps {
   onMoveField: (id: string, direction: 'up' | 'down') => void;
   isFillMode: boolean;
   zoomScale: number;
+  onZoomChange?: (scale: number) => void;
   
   // Fill mode state
   formData: Record<string, any>;
@@ -64,6 +77,7 @@ export const FormCanvas: React.FC<FormCanvasProps> = ({
   onMoveField,
   isFillMode,
   zoomScale,
+  onZoomChange,
   formData,
   onFormDataChange,
   tableData,
@@ -73,6 +87,9 @@ export const FormCanvas: React.FC<FormCanvasProps> = ({
   records = [],
 }) => {
   const [activeSigningFieldId, setActiveSigningFieldId] = useState<string | null>(null);
+  const { viewportWidth, isMobile } = useViewportWidth();
+  const sheetRef = useRef<HTMLDivElement | null>(null);
+  const [sheetSize, setSheetSize] = useState<{ width: number; height: number }>({ width: 0, height: 0 });
 
   // Extract catalog of products from historical records and template initial rows
   const productCatalog = useMemo(() => {
@@ -91,6 +108,29 @@ export const FormCanvas: React.FC<FormCanvasProps> = ({
 
   const currentDimKey = `${template.paperSize}-${template.orientation}`;
   const dimensions = paperDimensions[currentDimKey] || paperDimensions['A4-portrait'];
+
+  const isCompactViewport = viewportWidth < 1024;
+  const autoFitScale = isCompactViewport
+    ? calculateCanvasAutoScale(viewportWidth, template.paperSize, template.orientation, isMobile ? 24 : 48)
+    : 1;
+  const effectiveScale = Math.round(autoFitScale * zoomScale * 100) / 100;
+  const fallbackPaperPx = getPaperPixelWidth(template.paperSize, template.orientation);
+  const rawWidthPx = sheetSize.width > 0 ? sheetSize.width : fallbackPaperPx;
+
+  useEffect(() => {
+    const el = sheetRef.current;
+    if (!el || typeof ResizeObserver === 'undefined') return;
+    const updateSize = () => {
+      setSheetSize({
+        width: el.offsetWidth,
+        height: el.offsetHeight,
+      });
+    };
+    updateSize();
+    const ro = new ResizeObserver(updateSize);
+    ro.observe(el);
+    return () => ro.disconnect();
+  }, [template.id, template.paperSize, template.orientation, template.fields.length]);
 
   // Width class mapper for CSS grid
   const getWidthClass = (width: FieldWidth) => {
@@ -231,26 +271,46 @@ export const FormCanvas: React.FC<FormCanvasProps> = ({
   };
 
   return (
-    <div className="flex-1 bg-[#808080]/15 dark:bg-[#121214] overflow-auto p-4 md:p-8 flex justify-center items-start designer-grid-pattern relative transition-colors">
-      {/* Scaled Paper Container */}
+    <div className="flex-1 flex flex-col relative overflow-hidden bg-slate-200/35 dark:bg-slate-950/40 transition-colors">
+      <div className="flex-1 overflow-auto p-3 sm:p-4 md:p-8 flex justify-center items-start designer-grid-pattern relative">
+      {/* Layout footprint wrapper preventing horizontal overflow when paper is scaled */}
       <div
-        style={{
-          transform: `scale(${zoomScale})`,
-          transformOrigin: 'top center',
-          transition: 'transform 0.15s ease-out',
-        }}
-        className="printable-sheet bg-white dark:bg-[#1c2128] text-slate-900 dark:text-slate-100 shadow-xl transition-shadow relative"
+        dir="ltr"
+        style={
+          isCompactViewport || effectiveScale !== 1
+            ? {
+                width: `${Math.round(rawWidthPx * effectiveScale)}px`,
+                height: sheetSize.height > 0 ? `${Math.round(sheetSize.height * effectiveScale)}px` : undefined,
+                position: 'relative',
+                flexShrink: 0,
+              }
+            : undefined
+        }
       >
-        {/* Physical Paper Sheet Representation */}
+        {/* Scaled Paper Container */}
         <div
+          ref={sheetRef}
+          dir="rtl"
           style={{
-            width: dimensions.width,
-            minHeight: dimensions.minHeight,
+            transform: `scale(${effectiveScale})`,
+            transformOrigin: isCompactViewport || effectiveScale !== 1 ? 'top left' : 'top center',
+            transition: 'transform 0.15s ease-out',
+            position: isCompactViewport || effectiveScale !== 1 ? 'absolute' : 'relative',
+            top: 0,
+            left: 0,
           }}
-          className={`p-8 md:p-10 flex flex-col justify-between relative bg-white dark:bg-[#1c2128] transition-colors ${
-            template.showPageBorders ? 'border-2 border-slate-700 dark:border-slate-500' : 'border border-slate-200 dark:border-slate-700'
-          }`}
+          className="printable-sheet bg-white dark:bg-[#1c2128] text-slate-900 dark:text-slate-100 shadow-xl transition-shadow"
         >
+          {/* Physical Paper Sheet Representation */}
+          <div
+            style={{
+              width: dimensions.width,
+              minHeight: dimensions.minHeight,
+            }}
+            className={`p-8 md:p-10 flex flex-col justify-between relative bg-white dark:bg-[#1c2128] transition-colors ${
+              template.showPageBorders ? 'border-2 border-slate-700 dark:border-slate-500' : 'border border-slate-200 dark:border-slate-700'
+            }`}
+          >
           {/* Watermark overlay */}
           {template.showWatermark && (
             <div className="absolute inset-0 flex items-center justify-center pointer-events-none select-none overflow-hidden z-10">
@@ -349,16 +409,63 @@ export const FormCanvas: React.FC<FormCanvasProps> = ({
                       )}
 
                       {/* FIELD TYPE: HEADER BANNER */}
-                      {field.type === 'header_banner' && (
-                        field.headerType === 'dispatch_voucher' ? (
+                      {field.type === 'header_banner' && (() => {
+                        const logoInfo = resolveHeaderLogo(field);
+                        const renderCanvasLogo = () => {
+                          if (logoInfo.mode === 'custom' && logoInfo.logoUrl) {
+                            return (
+                              <div className="flex flex-col items-center justify-center gap-1">
+                                <img
+                                  src={logoInfo.logoUrl}
+                                  alt={field.companyName || 'لوگوی شرکت'}
+                                  style={{ maxHeight: `${logoInfo.sizePx}px` }}
+                                  className="max-w-full object-contain"
+                                />
+                                {field.companySubName && (
+                                  <div className="text-[8px] text-slate-800 dark:text-slate-300 font-medium w-full text-center">
+                                    {field.companySubName}
+                                  </div>
+                                )}
+                              </div>
+                            );
+                          }
+                          if (logoInfo.mode === 'none') {
+                            return (
+                              <div className="text-[10px] text-slate-700 dark:text-slate-300 font-semibold text-center">
+                                {field.companySubName || field.companyName || ''}
+                              </div>
+                            );
+                          }
+                          return (
+                            <>
+                              <div className="flex items-center gap-1.5">
+                                <span className="font-black text-base tracking-widest text-slate-900 dark:text-slate-100 font-sans">AWOX</span>
+                                <span className="text-orange-600 dark:text-orange-400 text-sm">◆</span>
+                              </div>
+                              <div className="text-[8px] text-slate-700 dark:text-slate-300 font-sans font-bold tracking-tight uppercase">
+                                AYRIA VANDAD KASRA Int&apos;l Co.
+                              </div>
+                              <div className="text-[8px] text-slate-800 dark:text-slate-300 font-medium mt-0.5 border-t border-slate-300 dark:border-slate-600 pt-0.5 w-full">
+                                {field.companySubName || 'شرکت بین‌المللی آیریا ونداد کسری'}
+                              </div>
+                            </>
+                          );
+                        };
+
+                        return field.headerType === 'dispatch_voucher' ? (
                           <div className="w-full text-xs select-none">
                             {/* Main 3-Cell Box Header */}
                             <div className="w-full border-2 border-slate-900 dark:border-slate-400 bg-white dark:bg-[#222731] flex text-xs">
-                              {/* Left Box (RTL leftmost): Date, Document Number, Form Code with borders */}
+                              {/* Right Box (RTL rightmost): Date, Document Number, Form Code with borders */}
                               <div className="w-[30%] flex flex-col justify-between text-xs font-semibold text-slate-900 dark:text-slate-100">
+                                {logoInfo.position === 'right' && logoInfo.mode !== 'none' && (
+                                  <div className="p-1.5 border-b-2 border-slate-900 dark:border-slate-400 flex flex-col items-center">
+                                    {renderCanvasLogo()}
+                                  </div>
+                                )}
                                 <div className="flex items-center justify-between p-1.5 border-b-2 border-slate-900 dark:border-slate-400">
                                   <span className="font-bold">تاریخ :</span>
-                                  <div className="font-mono">
+                                  <div className="font-sans tabular-nums">
                                     {isFillMode ? (
                                       <ShamsiDatePicker
                                         compact
@@ -373,13 +480,13 @@ export const FormCanvas: React.FC<FormCanvasProps> = ({
                                 </div>
                                 <div className="flex items-center justify-between p-1.5 border-b-2 border-slate-900 dark:border-slate-400">
                                   <span className="font-bold">شماره سند :</span>
-                                  <span className="font-mono font-bold">
+                                  <span className="font-sans tabular-nums font-bold">
                                     {isFillMode ? (
                                       <input
                                         type="text"
                                         value={formData[`${field.id}_doc_no`] ?? field.documentNumber ?? '1'}
                                         onChange={(e) => onFormDataChange(`${field.id}_doc_no`, e.target.value)}
-                                        className="w-16 px-1.5 py-0.5 border border-slate-300 dark:border-slate-600 dark:bg-[#181c24] dark:text-slate-100 rounded font-mono text-center text-xs"
+                                        className="w-16 px-1.5 py-0.5 border border-slate-300 dark:border-slate-600 dark:bg-[#181c24] dark:text-slate-100 rounded font-sans tabular-nums text-center text-xs"
                                       />
                                     ) : (
                                       toPersianDigits(formData[`${field.id}_doc_no`] || field.documentNumber || '1')
@@ -396,8 +503,16 @@ export const FormCanvas: React.FC<FormCanvasProps> = ({
 
                               {/* Center Box: Company Name, Title, and optional grey banner */}
                               <div className="flex-1 border-r-2 border-l-2 border-slate-900 dark:border-slate-400 flex flex-col justify-between text-center min-h-[76px]">
-                                <div className="font-bold text-xs text-slate-900 dark:text-slate-100 py-2 px-3">
-                                  {field.companyName || 'شرکت آیریا ونداد کسری'}
+                                <div className="font-bold text-xs text-slate-900 dark:text-slate-100 py-2 px-3 flex flex-col items-center justify-center gap-1">
+                                  {logoInfo.position === 'center' && logoInfo.mode === 'custom' && logoInfo.logoUrl && (
+                                    <img
+                                      src={logoInfo.logoUrl}
+                                      alt={field.companyName || 'لوگوی شرکت'}
+                                      style={{ maxHeight: `${logoInfo.sizePx}px` }}
+                                      className="max-w-full object-contain"
+                                    />
+                                  )}
+                                  <span>{field.companyName || 'شرکت آیریا ونداد کسری'}</span>
                                 </div>
                                 <div
                                   className={`font-black text-sm md:text-base text-slate-900 dark:text-slate-100 tracking-tight py-1.5 border-t-2 border-slate-900 dark:border-slate-400 ${
@@ -408,18 +523,15 @@ export const FormCanvas: React.FC<FormCanvasProps> = ({
                                 </div>
                               </div>
 
-                              {/* Right Box (RTL rightmost): AWOX Logo and Company English/Persian names */}
+                              {/* Left Box (RTL leftmost): Logo */}
                               <div className="w-[30%] p-2 flex flex-col items-center justify-center text-center">
-                                <div className="flex items-center gap-1.5">
-                                  <span className="font-black text-base tracking-widest text-slate-900 dark:text-slate-100 font-sans">AWOX</span>
-                                  <span className="text-orange-600 dark:text-orange-400 text-sm">◆</span>
-                                </div>
-                                <div className="text-[8px] text-slate-700 dark:text-slate-300 font-sans font-bold tracking-tight uppercase">
-                                  AYRIA VANDAD KASRA Int'l Co.
-                                </div>
-                                <div className="text-[8px] text-slate-800 dark:text-slate-300 font-medium mt-0.5 border-t border-slate-300 dark:border-slate-600 pt-0.5 w-full">
-                                  {field.companySubName || 'شرکت بین‌المللی آیریا ونداد کسری'}
-                                </div>
+                                {logoInfo.position === 'left'
+                                  ? renderCanvasLogo()
+                                  : (
+                                    <div className="text-[9px] text-slate-700 dark:text-slate-300 font-medium text-center">
+                                      {field.companySubName || 'سند رسمی سازمانی'}
+                                    </div>
+                                  )}
                               </div>
                             </div>
 
@@ -442,10 +554,21 @@ export const FormCanvas: React.FC<FormCanvasProps> = ({
                           </div>
                         ) : (
                           <div className="flex items-center justify-between pb-2 border-b border-slate-300 dark:border-slate-600 text-xs">
-                            <div className="flex items-center gap-2">
-                              <div className="w-9 h-9 rounded-md bg-slate-100 dark:bg-[#2c3342] border border-slate-300 dark:border-slate-600 flex items-center justify-center text-[#0067C0] dark:text-[#4cc2ff] font-bold text-sm">
-                                <Building2 className="w-5 h-5" />
-                              </div>
+                            <div className="flex items-center gap-2.5">
+                              {logoInfo.mode === 'custom' && logoInfo.logoUrl ? (
+                                <div className="rounded-md bg-white border border-slate-200 p-1 flex items-center justify-center shrink-0">
+                                  <img
+                                    src={logoInfo.logoUrl}
+                                    alt={field.companyName || 'لوگوی شرکت'}
+                                    style={{ maxHeight: `${logoInfo.sizePx}px` }}
+                                    className="max-w-[96px] object-contain"
+                                  />
+                                </div>
+                              ) : logoInfo.mode !== 'none' ? (
+                                <div className="w-9 h-9 rounded-md bg-slate-100 dark:bg-[#2c3342] border border-slate-300 dark:border-slate-600 flex items-center justify-center text-[#0067C0] dark:text-[#4cc2ff] font-bold text-sm">
+                                  <Building2 className="w-5 h-5" />
+                                </div>
+                              ) : null}
                               <div>
                                 <div className="font-bold text-slate-900 dark:text-slate-100 text-sm">
                                   {field.companyName || 'نام سازمان یا شرکت'}
@@ -455,13 +578,13 @@ export const FormCanvas: React.FC<FormCanvasProps> = ({
                                 </div>
                               </div>
                             </div>
-                            <div className="text-left text-[11px] text-slate-600 dark:text-slate-300 font-mono space-y-0.5">
+                            <div className="text-left text-[11px] text-slate-600 dark:text-slate-300 font-sans tabular-nums space-y-0.5">
                               <div>تاریخ: {toPersianDigits(formData['f_doc_date'] || formData['f_inv_date'] || '۱۴۰۳/۰۸/۲۰')}</div>
                               <div>شماره: {toPersianDigits(formData['f_doc_no'] || formData['f_inv_serial'] || '۱۰۱/۱۴۰۳')}</div>
                             </div>
                           </div>
-                        )
-                      )}
+                        );
+                      })()}
 
                       {/* FIELD TYPE: DIVIDER */}
                       {field.type === 'divider' && (
@@ -694,7 +817,7 @@ export const FormCanvas: React.FC<FormCanvasProps> = ({
                         </div>
                       )}
 
-                      {/* FIELD TYPE: TABLE (INVOICE / DISPATCH GRID) */}
+                      {/* FIELD TYPE: TABLE (INVOICE / DISPATCH GRID WITH EXCEL STYLES) */}
                       {field.type === 'table' && (
                         field.tableVariant === 'dispatch' ? (
                           (() => {
@@ -707,31 +830,50 @@ export const FormCanvas: React.FC<FormCanvasProps> = ({
                               { id: 'serialNumber', title: 'شماره سریال', width: 'w-36', type: 'text' },
                               { id: 'notes', title: 'توضیحات', width: 'w-44', type: 'text' },
                             ];
+                            const resolvedStyle = resolveTableStyle(field);
+                            const rowsList = getTableRows(field.id, field.tableInitialRows || 10);
 
                             return (
                               <>
-                                <div className="w-full border-2 border-slate-900 dark:border-slate-400 overflow-hidden text-xs my-0">
+                                <div
+                                  style={getTableWrapperStyle(resolvedStyle)}
+                                  className="w-full overflow-hidden text-xs my-0 bg-white"
+                                >
                                 <table className="w-full text-center border-collapse">
-                                  <thead className="bg-white dark:bg-[#222731] text-slate-900 dark:text-slate-100 font-bold border-b-2 border-slate-900 dark:border-slate-400 text-[11px]">
-                                    <tr className="divide-x-2 divide-x-reverse divide-slate-900 dark:divide-slate-400">
-                                      {columns.map((col) => (
+                                  <thead>
+                                    <tr>
+                                      {columns.map((col, colIdx) => (
                                         <th
                                           key={col.id}
-                                          className={`p-1.5 text-center ${col.width || 'flex-1'}`}
+                                          style={getHeaderCellCssStyle(resolvedStyle, col, colIdx, columns.length)}
+                                          className={col.widthPercent ? '' : col.width || 'flex-1'}
                                         >
                                           {col.title}
                                         </th>
                                       ))}
                                     </tr>
                                   </thead>
-                                  <tbody className="divide-y divide-slate-900 dark:divide-slate-400">
-                                    {getTableRows(field.id, field.tableInitialRows || 10).map((row, rIdx) => (
-                                      <tr key={row.id} className="divide-x-2 divide-x-reverse divide-slate-900 dark:divide-slate-400 h-8 hover:bg-slate-50/40 dark:hover:bg-slate-800/40">
-                                        {columns.map((col) => {
+                                  <tbody>
+                                    {rowsList.map((row, rIdx) => (
+                                      <tr key={row.id} className="h-8">
+                                        {columns.map((col, colIdx) => {
+                                          const cellStyle = getBodyCellCssStyle(
+                                            resolvedStyle,
+                                            col,
+                                            rIdx,
+                                            rowsList.length,
+                                            colIdx,
+                                            columns.length
+                                          );
+
                                           if (col.id === 'rowNumber') {
                                             return (
-                                              <td key={col.id} className="p-1 text-center font-mono text-xs font-medium text-slate-900 dark:text-slate-100">
-                                                {rIdx + 1}
+                                              <td
+                                                key={col.id}
+                                                style={cellStyle}
+                                                className="font-sans tabular-nums"
+                                              >
+                                                {toPersianDigits(rIdx + 1)}
                                               </td>
                                             );
                                           }
@@ -742,7 +884,7 @@ export const FormCanvas: React.FC<FormCanvasProps> = ({
                                           return (
                                             <td
                                               key={col.id}
-                                              className={`p-1 ${isTextLeftAligned ? 'text-right pr-2' : 'text-center'}`}
+                                              style={cellStyle}
                                             >
                                               {col.id === 'description' ? (
                                                 <ProductAutocompleteCell
@@ -771,15 +913,14 @@ export const FormCanvas: React.FC<FormCanvasProps> = ({
                                                     )
                                                   }
                                                   placeholder={col.title}
-                                                  className={`w-full px-1 py-0.5 bg-transparent border-0 outline-none text-xs text-slate-900 dark:text-slate-100 ${
+                                                  style={{ color: 'inherit', fontWeight: 'inherit', fontSize: 'inherit' }}
+                                                  className={`w-full px-1 py-0.5 bg-transparent border-0 outline-none ${
                                                     isTextLeftAligned ? 'text-right' : 'text-center'
-                                                  } ${isNumberCol ? 'font-mono' : ''}`}
+                                                  } ${isNumberCol ? 'font-sans tabular-nums' : ''}`}
                                                 />
                                               ) : (
                                                 <span
-                                                  className={`text-xs text-slate-900 dark:text-slate-100 ${
-                                                    isNumberCol ? 'font-mono' : ''
-                                                  }`}
+                                                  className={isNumberCol ? 'font-sans tabular-nums' : ''}
                                                 >
                                                   {isNumberCol && rawVal
                                                     ? toPersianDigits(rawVal)
@@ -809,12 +950,11 @@ export const FormCanvas: React.FC<FormCanvasProps> = ({
                                       <Plus className="w-3.5 h-3.5" />
                                       <span>افزودن ردیف جدید به جدول</span>
                                     </button>
-                                    {getTableRows(field.id, field.tableInitialRows || 10).length > 1 && (
+                                    {rowsList.length > 1 && (
                                       <button
                                         type="button"
                                         onClick={() => {
-                                          const rows = getTableRows(field.id, field.tableInitialRows || 10);
-                                          handleRemoveTableRow(field.id, rows[rows.length - 1].id);
+                                          handleRemoveTableRow(field.id, rowsList[rowsList.length - 1].id);
                                         }}
                                         className="inline-flex items-center gap-1 px-2 py-1 rounded bg-slate-100 hover:bg-slate-200 text-slate-600 dark:bg-slate-800 dark:hover:bg-slate-700 dark:text-slate-300 font-medium transition-colors cursor-pointer"
                                       >
@@ -823,8 +963,8 @@ export const FormCanvas: React.FC<FormCanvasProps> = ({
                                       </button>
                                     )}
                                   </div>
-                                  <span className="text-slate-400 dark:text-slate-500 text-[10px]">
-                                    تعداد ردیف‌ها: {toPersianDigits(getTableRows(field.id, field.tableInitialRows || 10).length)} ردیف
+                                  <span className="text-slate-400 dark:text-slate-500 text-[10px] font-sans tabular-nums">
+                                    تعداد ردیف‌ها: {toPersianDigits(rowsList.length)} ردیف
                                   </span>
                                 </div>
                               )}
@@ -848,7 +988,7 @@ export const FormCanvas: React.FC<FormCanvasProps> = ({
                               )}
                             </div>
 
-                            {/* Table Render */}
+                            {/* Table Render with Excel Styles */}
                             {(() => {
                               const columns = field.tableColumns || [
                                 { id: 'rowNumber', title: 'ردیف', width: 'w-12', type: 'number', align: 'center' },
@@ -857,41 +997,57 @@ export const FormCanvas: React.FC<FormCanvasProps> = ({
                                 { id: 'unitPrice', title: 'مبلغ واحد (ریال)', width: 'w-28', type: 'currency', align: 'left' },
                                 { id: 'totalPrice', title: 'مبلغ کل (ریال)', width: 'w-32', type: 'currency', align: 'left', isFormula: true },
                               ];
-
-                              const isThick = field.tableBorderThickness === 'thick';
+                              const resolvedStyle = resolveTableStyle(field);
+                              const rowsList = getTableRows(field.id, field.tableInitialRows || 3);
 
                               return (
-                                <div className={`overflow-hidden text-xs rounded ${isThick ? 'border-2 border-slate-900 dark:border-slate-400' : 'border border-slate-300 dark:border-slate-700'}`}>
+                                <div
+                                  style={getTableWrapperStyle(resolvedStyle)}
+                                  className="overflow-hidden text-xs rounded bg-white"
+                                >
                                   <table className="w-full border-collapse">
-                                    <thead className={`bg-slate-100 dark:bg-[#29303d] text-slate-700 dark:text-slate-300 font-semibold text-[11px] ${isThick ? 'border-b-2 border-slate-900 dark:border-slate-400' : 'border-b border-slate-300 dark:border-slate-700'}`}>
-                                      <tr className={isThick ? 'divide-x-2 divide-x-reverse divide-slate-900 dark:divide-slate-400' : ''}>
-                                        {columns.map((col) => (
+                                    <thead>
+                                      <tr>
+                                        {columns.map((col, colIdx) => (
                                           <th
                                             key={col.id}
-                                            className={`p-1.5 ${isThick ? '' : 'border-l border-slate-300 dark:border-slate-700'} ${
-                                              col.align === 'center' ? 'text-center' : col.align === 'left' ? 'text-left' : 'text-right'
-                                            } ${col.width || ''}`}
+                                            style={getHeaderCellCssStyle(resolvedStyle, col, colIdx, columns.length, isFillMode)}
+                                            className={col.widthPercent ? '' : col.width || ''}
                                           >
                                             {col.title}
                                           </th>
                                         ))}
-                                        {isFillMode && <th className="p-1 w-8 text-center no-print"></th>}
+                                        {isFillMode && (
+                                          <th
+                                            style={{
+                                              backgroundColor: resolvedStyle.headerBgColor,
+                                              borderBottom: getHeaderCellCssStyle(resolvedStyle, columns[0], 0, columns.length, true).borderBottom,
+                                            }}
+                                            className="p-1 w-8 text-center no-print"
+                                          />
+                                        )}
                                       </tr>
                                     </thead>
-                                    <tbody className={`divide-y ${isThick ? 'divide-slate-900 dark:divide-slate-400' : 'divide-slate-200 dark:divide-slate-700'}`}>
-                                      {getTableRows(field.id, field.tableInitialRows || 3).map((row, rIdx) => (
-                                        <tr
-                                          key={row.id}
-                                          className={`hover:bg-slate-50/50 dark:hover:bg-slate-800/40 ${isThick ? 'divide-x-2 divide-x-reverse divide-slate-900 dark:divide-slate-400' : ''}`}
-                                        >
-                                          {columns.map((col) => {
+                                    <tbody>
+                                      {rowsList.map((row, rIdx) => (
+                                        <tr key={row.id}>
+                                          {columns.map((col, colIdx) => {
+                                            const cellStyle = getBodyCellCssStyle(
+                                              resolvedStyle,
+                                              col,
+                                              rIdx,
+                                              rowsList.length,
+                                              colIdx,
+                                              columns.length,
+                                              isFillMode
+                                            );
+
                                             if (col.id === 'rowNumber') {
                                               return (
                                                 <td
                                                   key={col.id}
-                                                  className={`p-1.5 text-center font-mono text-[11px] text-slate-600 dark:text-slate-400 ${
-                                                    isThick ? '' : 'border-l border-slate-200 dark:border-slate-700'
-                                                  }`}
+                                                  style={cellStyle}
+                                                  className="font-sans tabular-nums"
                                                 >
                                                   {toPersianDigits(rIdx + 1)}
                                                 </td>
@@ -902,9 +1058,8 @@ export const FormCanvas: React.FC<FormCanvasProps> = ({
                                               return (
                                                 <td
                                                   key={col.id}
-                                                  className={`p-1.5 font-mono text-xs font-medium text-slate-900 dark:text-slate-100 ${
-                                                    isThick ? '' : 'border-l border-slate-200 dark:border-slate-700'
-                                                  } ${col.align === 'center' ? 'text-center' : col.align === 'left' ? 'text-left' : 'text-right'}`}
+                                                  style={cellStyle}
+                                                  className="font-sans tabular-nums font-medium"
                                                 >
                                                   {formatCurrency(row.totalPrice || calculateRowTotal(Number(row.quantity || 0), Number(row.unitPrice || 0)))}
                                                 </td>
@@ -916,10 +1071,7 @@ export const FormCanvas: React.FC<FormCanvasProps> = ({
                                             const isNumberCol = col.type === 'number';
 
                                             return (
-                                              <td
-                                                key={col.id}
-                                                className={`p-1 ${isThick ? '' : 'border-l border-slate-200 dark:border-slate-700'}`}
-                                              >
+                                              <td key={col.id} style={cellStyle}>
                                                 {col.id === 'description' ? (
                                                   <ProductAutocompleteCell
                                                     value={String(rawVal || '')}
@@ -953,14 +1105,15 @@ export const FormCanvas: React.FC<FormCanvasProps> = ({
                                                       handleTableRowChange(field.id, row.id, col.id as keyof TableItemRow, val);
                                                     }}
                                                     placeholder={col.title}
-                                                    className={`w-full px-1.5 py-0.5 bg-transparent border-0 outline-none text-xs text-slate-900 dark:text-slate-100 ${
-                                                      isCurrencyCol || isNumberCol ? 'font-mono' : ''
+                                                    style={{ color: 'inherit', fontWeight: 'inherit', fontSize: 'inherit' }}
+                                                    className={`w-full px-1.5 py-0.5 bg-transparent border-0 outline-none ${
+                                                      isCurrencyCol || isNumberCol ? 'font-sans tabular-nums' : ''
                                                     } ${col.align === 'center' ? 'text-center' : col.align === 'left' ? 'text-left' : 'text-right'}`}
                                                   />
                                                 ) : (
                                                   <span
-                                                    className={`text-xs block px-1 text-slate-700 dark:text-slate-300 ${
-                                                      isCurrencyCol || isNumberCol ? 'font-mono' : ''
+                                                    className={`block px-1 ${
+                                                      isCurrencyCol || isNumberCol ? 'font-sans tabular-nums' : ''
                                                     } ${col.align === 'center' ? 'text-center' : col.align === 'left' ? 'text-left' : 'text-right'}`}
                                                   >
                                                     {isCurrencyCol
@@ -977,7 +1130,29 @@ export const FormCanvas: React.FC<FormCanvasProps> = ({
                                           })}
 
                                           {isFillMode && (
-                                            <td className="p-1 text-center no-print">
+                                            <td
+                                              style={{
+                                                backgroundColor: getBodyCellCssStyle(
+                                                  resolvedStyle,
+                                                  columns[0],
+                                                  rIdx,
+                                                  rowsList.length,
+                                                  0,
+                                                  columns.length,
+                                                  true
+                                                ).backgroundColor,
+                                                borderBottom: getBodyCellCssStyle(
+                                                  resolvedStyle,
+                                                  columns[0],
+                                                  rIdx,
+                                                  rowsList.length,
+                                                  0,
+                                                  columns.length,
+                                                  true
+                                                ).borderBottom,
+                                              }}
+                                              className="p-1 text-center no-print"
+                                            >
                                               <button
                                                 onClick={() => handleRemoveTableRow(field.id, row.id)}
                                                 className="text-slate-400 hover:text-red-500 p-0.5 transition-colors"
@@ -997,7 +1172,13 @@ export const FormCanvas: React.FC<FormCanvasProps> = ({
 
                               {/* Summary & Totals Calculation Box */}
                               {field.hasTableSummary && (
-                                <div className="bg-slate-50 dark:bg-[#222731] p-2.5 border-t border-slate-300 dark:border-slate-700">
+                                <div
+                                  style={{
+                                    backgroundColor: resolveTableStyle(field).summaryBgColor,
+                                    color: resolveTableStyle(field).summaryTextColor,
+                                  }}
+                                  className="p-2.5 border-t border-slate-300 dark:border-slate-700"
+                                >
                                   {(() => {
                                     const rows = getTableRows(field.id);
                                     const summary = calculateTableSummary(
@@ -1008,28 +1189,28 @@ export const FormCanvas: React.FC<FormCanvasProps> = ({
 
                                     return (
                                       <div className="space-y-1 text-xs">
-                                        <div className="flex justify-between text-slate-600 dark:text-slate-300">
+                                        <div className="flex justify-between opacity-85">
                                           <span>جمع کل اقلام:</span>
-                                          <span className="font-mono font-medium">{formatCurrency(summary.subtotal)} ریال</span>
+                                          <span className="font-sans tabular-nums font-medium">{formatCurrency(summary.subtotal)} ریال</span>
                                         </div>
                                         {(field.discountAmount || 0) > 0 && (
-                                          <div className="flex justify-between text-emerald-700 dark:text-emerald-400">
+                                          <div className="flex justify-between text-emerald-700">
                                             <span>تخفیف اعطایی:</span>
-                                            <span className="font-mono">({formatCurrency(summary.discountAmount)}) ریال</span>
+                                            <span className="font-sans tabular-nums">({formatCurrency(summary.discountAmount)}) ریال</span>
                                           </div>
                                         )}
                                         {(field.taxRatePercent ?? 10) > 0 && (
-                                          <div className="flex justify-between text-slate-600 dark:text-slate-300">
+                                          <div className="flex justify-between opacity-85">
                                             <span>مالیات بر ارزش افزوده ({toPersianDigits(field.taxRatePercent ?? 10)}٪):</span>
-                                            <span className="font-mono font-medium">{formatCurrency(summary.taxAmount)} ریال</span>
+                                            <span className="font-sans tabular-nums font-medium">{formatCurrency(summary.taxAmount)} ریال</span>
                                           </div>
                                         )}
-                                        <div className="flex justify-between text-slate-900 dark:text-white font-bold pt-1.5 border-t border-slate-300 dark:border-slate-700 text-sm">
+                                        <div className="flex justify-between font-bold pt-1.5 border-t border-slate-300 text-sm">
                                           <span>مبلغ قابل پرداخت نهایی:</span>
-                                          <span className="font-mono text-[#0067C0] dark:text-[#4cc2ff]">{formatCurrency(summary.grandTotal)} ریال</span>
+                                          <span className="font-sans tabular-nums text-[#0067C0]">{formatCurrency(summary.grandTotal)} ریال</span>
                                         </div>
-                                        <div className="text-[11px] text-slate-500 dark:text-slate-400 pt-0.5">
-                                          به حروف: <span className="font-semibold text-slate-700 dark:text-slate-300">{numberToPersianWords(summary.grandTotal)}</span>
+                                        <div className="text-[11px] opacity-80 pt-0.5">
+                                          به حروف: <span className="font-semibold">{numberToPersianWords(summary.grandTotal)}</span>
                                         </div>
                                       </div>
                                     );
@@ -1216,20 +1397,68 @@ export const FormCanvas: React.FC<FormCanvasProps> = ({
               </div>
             </div>
           )}
+          </div>
         </div>
       </div>
 
-      {/* Signature Pad Modal */}
-      {activeSigningFieldId && (
-        <SignaturePadModal
-          isOpen={true}
-          onClose={() => setActiveSigningFieldId(null)}
-          onSave={(dataUrl) => {
-            onSignatureDataChange(activeSigningFieldId, dataUrl);
-            setActiveSigningFieldId(null);
-          }}
-          initialDataUrl={signatureData[activeSigningFieldId]}
-        />
+        {/* Signature Pad Modal */}
+        {activeSigningFieldId && (
+          <SignaturePadModal
+            isOpen={true}
+            onClose={() => setActiveSigningFieldId(null)}
+            onSave={(dataUrl) => {
+              onSignatureDataChange(activeSigningFieldId, dataUrl);
+              setActiveSigningFieldId(null);
+            }}
+            initialDataUrl={signatureData[activeSigningFieldId]}
+          />
+        )}
+      </div>
+
+      {/* Floating Liquid Glass Zoom Controls */}
+      {onZoomChange && (
+        <div
+          dir="rtl"
+          className="no-print absolute bottom-3 left-3 z-20 liquid-glass-elevated rounded-2xl p-1 flex items-center gap-1 text-xs shadow-lg"
+        >
+          <button
+            type="button"
+            onClick={() => onZoomChange(Math.min(1.5, Number((zoomScale + 0.1).toFixed(2))))}
+            aria-label="بزرگ‌نمایی"
+            title="بزرگ‌نمایی"
+            className="w-8 h-8 rounded-xl flex items-center justify-center text-slate-700 dark:text-slate-200 hover:bg-white/75 dark:hover:bg-slate-800/70 transition-colors cursor-pointer"
+          >
+            <ZoomIn className="w-4 h-4" />
+          </button>
+          <button
+            type="button"
+            onClick={() => onZoomChange(1)}
+            title="بازگشت به اندازه ۱۰۰٪"
+            className="px-2 h-8 rounded-xl font-sans tabular-nums font-semibold text-slate-700 dark:text-slate-200 hover:bg-white/75 dark:hover:bg-slate-800/70 transition-colors cursor-pointer"
+          >
+            {toPersianDigits(Math.round(zoomScale * 100))}٪
+          </button>
+          <button
+            type="button"
+            onClick={() => onZoomChange(Math.max(0.5, Number((zoomScale - 0.1).toFixed(2))))}
+            aria-label="کوچک‌نمایی"
+            title="کوچک‌نمایی"
+            className="w-8 h-8 rounded-xl flex items-center justify-center text-slate-700 dark:text-slate-200 hover:bg-white/75 dark:hover:bg-slate-800/70 transition-colors cursor-pointer"
+          >
+            <ZoomOut className="w-4 h-4" />
+          </button>
+          {zoomScale !== 1 && (
+            <button
+              type="button"
+              onClick={() => onZoomChange(1)}
+              aria-label="بازنشانی بزرگ‌نمایی"
+              title="بازنشانی"
+              className="w-8 h-8 rounded-xl flex items-center justify-center text-sky-700 dark:text-sky-300 hover:bg-white/75 dark:hover:bg-slate-800/70 transition-colors cursor-pointer"
+            >
+              <RotateCcw className="w-3.5 h-3.5" />
+            </button>
+          )}
+        </div>
       )}
     </div>
   );

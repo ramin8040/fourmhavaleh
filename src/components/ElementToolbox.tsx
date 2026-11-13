@@ -12,13 +12,16 @@ import {
   QrCode,
   Building2,
   Minus,
-  Plus
+  Plus,
+  X
 } from 'lucide-react';
 import { FieldType } from '../types/form';
 
 interface ElementToolboxProps {
   onAddField: (type: FieldType) => void;
   disabled?: boolean;
+  isMobileOpen?: boolean;
+  onCloseMobile?: () => void;
 }
 
 interface ToolItem {
@@ -29,7 +32,12 @@ interface ToolItem {
   category: 'اقلام و کاردکس انبار' | 'سربرگ و هویت سند' | 'اطلاعات سند و تحویل' | 'تأییدات و رهگیری';
 }
 
-export const ElementToolbox: React.FC<ElementToolboxProps> = ({ onAddField, disabled }) => {
+export const ElementToolbox: React.FC<ElementToolboxProps> = ({
+  onAddField,
+  disabled,
+  isMobileOpen = false,
+  onCloseMobile,
+}) => {
   const tools: ToolItem[] = [
     {
       type: 'table',
@@ -120,43 +128,63 @@ export const ElementToolbox: React.FC<ElementToolboxProps> = ({ onAddField, disa
   const categories = ['اقلام و کاردکس انبار', 'سربرگ و هویت سند', 'اطلاعات سند و تحویل', 'تأییدات و رهگیری'] as const;
 
   return (
-    <aside className="w-64 bg-[#fbfbfc] dark:bg-[#202020] border-l border-[#d1d5db] dark:border-[#2d2d2d] flex flex-col shrink-0 select-none overflow-y-auto transition-colors">
-      <div className="p-3 border-b border-[#e5e7eb] dark:border-[#2d2d2d] bg-[#f3f4f6] dark:bg-[#1a1a1a]">
-        <h2 className="text-xs font-bold text-slate-800 dark:text-slate-100 flex items-center justify-between">
-          <span>ابزارهای صدور حواله و رسید</span>
-          <span className="text-[10px] font-normal text-slate-500 dark:text-slate-400">کلیک برای درج</span>
-        </h2>
+    <aside
+      className={`fixed inset-y-0 right-0 z-40 w-72 max-w-[85vw] lg:w-64 lg:static lg:z-auto liquid-glass-elevated border-l border-white/60 dark:border-white/10 flex flex-col shrink-0 select-none overflow-y-auto shadow-2xl lg:shadow-none transition-transform duration-200 lg:translate-x-0 lg:pointer-events-auto ${
+        isMobileOpen ? 'translate-x-0 pointer-events-auto' : 'translate-x-full pointer-events-none'
+      }`}
+    >
+      <div className="p-3.5 border-b border-slate-300/40 dark:border-white/10 bg-white/40 dark:bg-slate-900/40 flex items-center justify-between gap-2 sticky top-0 z-10 backdrop-blur-md">
+        <div>
+          <h2 className="text-xs font-bold text-slate-900 dark:text-white">
+            ابزارهای صفحه
+          </h2>
+          <span className="text-[11px] font-normal text-slate-500 dark:text-slate-400">
+            برای اضافه شدن به برگه کلیک کنید
+          </span>
+        </div>
+        {onCloseMobile && (
+          <button
+            type="button"
+            onClick={onCloseMobile}
+            aria-label="بستن پنل ابزارها"
+            className="lg:hidden p-1.5 rounded-xl text-slate-500 hover:bg-white/75 dark:hover:bg-white/10 cursor-pointer"
+          >
+            <X className="w-4 h-4" />
+          </button>
+        )}
       </div>
 
-      <div className="p-2 space-y-4">
+      <div className="p-2.5 space-y-4">
         {categories.map((cat) => {
           const items = tools.filter((t) => t.category === cat);
           return (
-            <div key={cat} className="space-y-1">
-              <span className="text-[11px] font-semibold text-slate-500 dark:text-slate-400 px-1">{cat}</span>
-              <div className="space-y-1">
+            <div key={cat} className="space-y-1.5">
+              <span className="text-[11px] font-semibold text-slate-500 dark:text-slate-400 px-1">
+                {cat}
+              </span>
+              <div className="space-y-1.5">
                 {items.map((item) => (
                   <button
                     key={item.type}
                     onClick={() => onAddField(item.type)}
                     disabled={disabled}
-                    className="w-full flex items-center justify-between p-2 rounded-md bg-white dark:bg-[#282828] border border-slate-200 dark:border-[#383838] hover:border-[#0067C0] dark:hover:border-[#4cc2ff] hover:bg-blue-50/40 dark:hover:bg-[#323232] text-right transition-all group shadow-2xs disabled:opacity-50 disabled:cursor-not-allowed"
+                    className="w-full flex items-center justify-between p-2.5 rounded-2xl liquid-glass-well hover:border-sky-400/60 hover:bg-white/85 dark:hover:bg-slate-800/75 text-right transition-all group disabled:opacity-50 disabled:cursor-not-allowed cursor-pointer"
                     title={`افزودن ${item.title}`}
                   >
                     <div className="flex items-center gap-2.5 overflow-hidden">
-                      <div className="p-1.5 rounded bg-slate-50 dark:bg-[#202020] border border-slate-100 dark:border-[#333333] group-hover:bg-white dark:group-hover:bg-[#2c2c2c] group-hover:border-blue-200 dark:group-hover:border-[#4cc2ff]/40 transition-colors">
+                      <div className="p-1.5 rounded-xl bg-white/80 dark:bg-slate-900/70 border border-slate-200/70 dark:border-white/10 transition-colors">
                         {item.icon}
                       </div>
                       <div className="truncate">
-                        <div className="text-xs font-medium text-slate-800 dark:text-slate-200 group-hover:text-[#0067C0] dark:group-hover:text-[#4cc2ff] truncate">
+                        <div className="text-xs font-semibold text-slate-800 dark:text-slate-100 group-hover:text-sky-700 dark:group-hover:text-sky-300 truncate">
                           {item.title}
                         </div>
-                        <div className="text-[10px] text-slate-400 dark:text-slate-400 truncate">
+                        <div className="text-[10px] text-slate-500 dark:text-slate-400 truncate">
                           {item.description}
                         </div>
                       </div>
                     </div>
-                    <Plus className="w-3.5 h-3.5 text-slate-400 dark:text-slate-500 group-hover:text-[#0067C0] dark:group-hover:text-[#4cc2ff] shrink-0" />
+                    <Plus className="w-3.5 h-3.5 text-slate-400 dark:text-slate-500 group-hover:text-sky-700 dark:group-hover:text-sky-300 shrink-0" />
                   </button>
                 ))}
               </div>

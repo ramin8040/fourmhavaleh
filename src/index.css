@@ -6,8 +6,8 @@
   * {
     box-sizing: border-box;
   }
-  
-  /* Modern Windows 11 style scrollbars */
+
+  /* Soft custom scrollbars matching glass aesthetic */
   ::-webkit-scrollbar {
     width: 6px;
     height: 6px;
@@ -16,44 +16,184 @@
     background: transparent;
   }
   ::-webkit-scrollbar-thumb {
-    background: rgba(140, 140, 140, 0.35);
+    background: rgba(100, 116, 139, 0.28);
     border-radius: 9999px;
   }
   ::-webkit-scrollbar-thumb:hover {
-    background: rgba(100, 100, 100, 0.6);
+    background: rgba(71, 85, 105, 0.5);
   }
 
   .dark ::-webkit-scrollbar-thumb {
-    background: rgba(180, 180, 180, 0.25);
+    background: rgba(148, 163, 184, 0.24);
   }
   .dark ::-webkit-scrollbar-thumb:hover {
-    background: rgba(220, 220, 220, 0.45);
+    background: rgba(203, 213, 225, 0.42);
+  }
+}
+
+@layer components {
+  /* Ambient atmospheric canvas so translucent Liquid Glass layers refract real depth */
+  .liquid-bg-mesh {
+    background-color: #e9eff8;
+    background-image:
+      radial-gradient(at 12% 14%, rgba(56, 189, 248, 0.24) 0px, transparent 52%),
+      radial-gradient(at 88% 12%, rgba(99, 102, 241, 0.14) 0px, transparent 48%),
+      radial-gradient(at 78% 85%, rgba(16, 185, 129, 0.12) 0px, transparent 50%),
+      radial-gradient(at 18% 82%, rgba(186, 230, 253, 0.42) 0px, transparent 55%),
+      linear-gradient(160deg, #f4f7fc 0%, #e6eef9 52%, #edf3fb 100%);
+  }
+
+  .dark .liquid-bg-mesh {
+    background-color: #090e1a;
+    background-image:
+      radial-gradient(at 15% 15%, rgba(14, 165, 233, 0.18) 0px, transparent 50%),
+      radial-gradient(at 85% 18%, rgba(99, 102, 241, 0.14) 0px, transparent 48%),
+      radial-gradient(at 75% 88%, rgba(16, 185, 129, 0.11) 0px, transparent 50%),
+      linear-gradient(160deg, #0b1120 0%, #0f172a 55%, #0a101d 100%);
+  }
+
+  /* Primary Liquid Glass panel / card */
+  .liquid-glass {
+    background: linear-gradient(
+      145deg,
+      rgba(255, 255, 255, 0.78) 0%,
+      rgba(255, 255, 255, 0.56) 100%
+    );
+    backdrop-filter: blur(22px) saturate(185%);
+    -webkit-backdrop-filter: blur(22px) saturate(185%);
+    border: 1px solid rgba(255, 255, 255, 0.78);
+    box-shadow:
+      inset 0 1px 0 0 rgba(255, 255, 255, 0.92),
+      0 10px 30px -12px rgba(15, 23, 42, 0.1);
+  }
+
+  .dark .liquid-glass {
+    background: linear-gradient(
+      145deg,
+      rgba(30, 41, 59, 0.74) 0%,
+      rgba(15, 23, 42, 0.6) 100%
+    );
+    border: 1px solid rgba(255, 255, 255, 0.13);
+    box-shadow:
+      inset 0 1px 0 0 rgba(255, 255, 255, 0.14),
+      0 12px 32px -12px rgba(0, 0, 0, 0.45);
+  }
+
+  /* Elevated Liquid Glass for floating headers, drawers, active selections & modals */
+  .liquid-glass-elevated {
+    background: linear-gradient(
+      155deg,
+      rgba(255, 255, 255, 0.88) 0%,
+      rgba(248, 251, 255, 0.72) 100%
+    );
+    backdrop-filter: blur(28px) saturate(200%);
+    -webkit-backdrop-filter: blur(28px) saturate(200%);
+    border: 1px solid rgba(255, 255, 255, 0.88);
+    box-shadow:
+      inset 0 1.5px 0 0 rgba(255, 255, 255, 0.96),
+      0 16px 40px -14px rgba(15, 23, 42, 0.14);
+  }
+
+  .dark .liquid-glass-elevated {
+    background: linear-gradient(
+      155deg,
+      rgba(30, 41, 59, 0.86) 0%,
+      rgba(17, 24, 39, 0.76) 100%
+    );
+    border: 1px solid rgba(255, 255, 255, 0.16);
+    box-shadow:
+      inset 0 1px 0 0 rgba(255, 255, 255, 0.18),
+      0 20px 44px -14px rgba(0, 0, 0, 0.58);
+  }
+
+  /* Recessed frosted glass well for inputs & segmented tracks */
+  .liquid-glass-well {
+    background: rgba(255, 255, 255, 0.62);
+    backdrop-filter: blur(12px) saturate(150%);
+    -webkit-backdrop-filter: blur(12px) saturate(150%);
+    border: 1px solid rgba(148, 163, 184, 0.28);
+    box-shadow: inset 0 1px 2px rgba(15, 23, 42, 0.04);
+  }
+
+  .dark .liquid-glass-well {
+    background: rgba(15, 23, 42, 0.6);
+    border: 1px solid rgba(255, 255, 255, 0.12);
+    box-shadow: inset 0 1px 2px rgba(0, 0, 0, 0.25);
+  }
+
+  /* Tactile specular Liquid Glass primary action buttons */
+  .liquid-cta {
+    background: linear-gradient(180deg, #0ea5e9 0%, #0284c7 100%);
+    color: #ffffff;
+    border: 1px solid rgba(255, 255, 255, 0.36);
+    box-shadow:
+      inset 0 1px 0 0 rgba(255, 255, 255, 0.48),
+      0 8px 20px -6px rgba(2, 132, 199, 0.42);
+    transition: transform 0.15s cubic-bezier(0.16, 1, 0.3, 1), filter 0.15s ease, box-shadow 0.15s ease;
+  }
+
+  .liquid-cta:hover:not(:disabled) {
+    filter: brightness(1.06);
+    box-shadow:
+      inset 0 1px 0 0 rgba(255, 255, 255, 0.55),
+      0 10px 24px -6px rgba(2, 132, 199, 0.5);
+  }
+
+  .liquid-cta:active:not(:disabled) {
+    transform: scale(0.985);
+  }
+
+  .liquid-cta-success {
+    background: linear-gradient(180deg, #10b981 0%, #059669 100%);
+    color: #ffffff;
+    border: 1px solid rgba(255, 255, 255, 0.34);
+    box-shadow:
+      inset 0 1px 0 0 rgba(255, 255, 255, 0.45),
+      0 8px 20px -6px rgba(5, 150, 105, 0.38);
+    transition: transform 0.15s cubic-bezier(0.16, 1, 0.3, 1), filter 0.15s ease, box-shadow 0.15s ease;
+  }
+
+  .liquid-cta-success:hover:not(:disabled) {
+    filter: brightness(1.06);
+  }
+
+  .liquid-cta-success:active:not(:disabled) {
+    transform: scale(0.985);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .liquid-cta,
+  .liquid-cta-success,
+  * {
+    transition-duration: 0.01ms !important;
+    animation-duration: 0.01ms !important;
   }
 }
 
 /* Designer grid background */
 .designer-grid-pattern {
   background-size: 20px 20px;
-  background-image: 
-    linear-gradient(to right, rgba(0, 0, 0, 0.05) 1px, transparent 1px),
-    linear-gradient(to bottom, rgba(0, 0, 0, 0.05) 1px, transparent 1px);
+  background-image:
+    linear-gradient(to right, rgba(15, 23, 42, 0.04) 1px, transparent 1px),
+    linear-gradient(to bottom, rgba(15, 23, 42, 0.04) 1px, transparent 1px);
 }
 
 .dark .designer-grid-pattern {
   background-size: 20px 20px;
-  background-image: 
+  background-image:
     linear-gradient(to right, rgba(255, 255, 255, 0.05) 1px, transparent 1px),
     linear-gradient(to bottom, rgba(255, 255, 255, 0.05) 1px, transparent 1px);
 }
 
 .designer-grid-dots {
   background-size: 16px 16px;
-  background-image: radial-gradient(circle, rgba(0, 0, 0, 0.12) 1px, transparent 1px);
+  background-image: radial-gradient(circle, rgba(15, 23, 42, 0.1) 1px, transparent 1px);
 }
 
 .dark .designer-grid-dots {
   background-size: 16px 16px;
-  background-image: radial-gradient(circle, rgba(255, 255, 255, 0.15) 1px, transparent 1px);
+  background-image: radial-gradient(circle, rgba(255, 255, 255, 0.14) 1px, transparent 1px);
 }
 
 /* Print Specific Rules */
@@ -74,6 +214,7 @@
 
   html, body {
     background: white !important;
+    background-image: none !important;
     color: black !important;
     overflow: visible !important;
     height: auto !important;

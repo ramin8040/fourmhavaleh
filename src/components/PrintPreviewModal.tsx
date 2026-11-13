@@ -70,26 +70,28 @@ export const PrintPreviewModal: React.FC<PrintPreviewModalProps> = ({
   const activeSigData = printSettings.printMode === 'blank' ? {} : signatureData;
 
   return (
-    <div className="fixed inset-0 z-50 bg-black/60 dark:bg-black/80 backdrop-blur-xs flex flex-col select-none no-print">
-      {/* Windows Print Dialog Header */}
-      <div className="h-12 bg-[#f3f4f6] dark:bg-[#1a1a1a] border-b border-slate-300 dark:border-[#2d2d2d] px-4 flex items-center justify-between text-xs text-slate-800 dark:text-slate-100 shadow-xs transition-colors">
-        <div className="flex items-center gap-2 font-bold text-sm">
-          <Printer className="w-4 h-4 text-[#0067C0] dark:text-[#4cc2ff]" />
-          <span>پیش‌نمایش چاپ و تنظیمات چاپگر ویندوز</span>
+    <div className="fixed inset-0 z-50 bg-slate-950/50 backdrop-blur-sm flex flex-col select-none no-print">
+      {/* Liquid Glass Print Header */}
+      <div className="min-h-14 py-2 liquid-glass-elevated border-b border-white/60 dark:border-white/10 px-3 sm:px-5 flex flex-wrap items-center justify-between gap-2 text-xs text-slate-900 dark:text-slate-100 transition-colors">
+        <div className="flex items-center gap-2.5 font-bold text-xs sm:text-sm min-w-0">
+          <div className="w-8 h-8 rounded-xl liquid-cta flex items-center justify-center shrink-0">
+            <Printer className="w-4 h-4" />
+          </div>
+          <span className="truncate">پیش‌نمایش و چاپ برگه</span>
         </div>
 
-        <div className="flex items-center gap-3">
+        <div className="flex items-center gap-2 sm:gap-3 shrink-0">
           <button
             onClick={handlePrint}
-            className="flex items-center gap-1.5 px-4 py-1.5 bg-[#0067C0] hover:bg-[#005a9e] dark:bg-[#0078D4] dark:hover:bg-[#006cbd] text-white rounded font-medium shadow-xs transition-colors"
+            className="h-10 flex items-center gap-1.5 px-4 sm:px-5 liquid-cta rounded-2xl font-bold text-xs sm:text-sm cursor-pointer"
           >
-            <Printer className="w-3.5 h-3.5" />
-            <span>چاپ برگه (Print)</span>
+            <Printer className="w-4 h-4" />
+            <span>چاپ برگه</span>
           </button>
 
           <button
             onClick={onClose}
-            className="p-1 rounded hover:bg-slate-200 dark:hover:bg-white/10 text-slate-500 dark:text-slate-400 transition-colors"
+            className="w-10 h-10 rounded-2xl liquid-glass-well flex items-center justify-center text-slate-600 dark:text-slate-300 hover:bg-white/80 dark:hover:bg-white/10 transition-colors cursor-pointer"
             title="بستن"
           >
             <X className="w-4 h-4" />
@@ -98,45 +100,44 @@ export const PrintPreviewModal: React.FC<PrintPreviewModalProps> = ({
       </div>
 
       {/* Main Body: Settings Side & Live Paper Preview */}
-      <div className="flex-1 flex overflow-hidden">
-        {/* Settings Sidebar */}
-        <aside className="w-72 bg-white dark:bg-[#202020] border-l border-slate-300 dark:border-[#2d2d2d] p-4 overflow-y-auto text-xs space-y-4 text-slate-700 dark:text-slate-300 transition-colors">
-          <div className="space-y-1">
-            <span className="font-bold text-slate-900 dark:text-slate-100 block text-xs">حالت محتوای چاپ:</span>
-            <div className="grid grid-cols-2 gap-1.5 p-1 bg-slate-100 dark:bg-[#18181a] rounded-lg border border-slate-200 dark:border-slate-800">
+      <div className="flex-1 flex flex-col lg:flex-row overflow-y-auto lg:overflow-hidden">
+        <aside className="w-full lg:w-72 liquid-glass-elevated border-b lg:border-b-0 lg:border-l border-white/60 dark:border-white/10 p-4 sm:p-5 lg:overflow-y-auto shrink-0 text-xs space-y-4 text-slate-700 dark:text-slate-200 transition-colors">
+          <div className="space-y-1.5">
+            <span className="font-bold text-slate-900 dark:text-white block text-xs">
+              چطور چاپ شود؟
+            </span>
+            <div className="grid grid-cols-2 gap-1 p-1 liquid-glass-well rounded-2xl">
               <button
                 onClick={() => setPrintSettings((s) => ({ ...s, printMode: 'filled' }))}
-                className={`py-1.5 px-2 rounded text-center transition-colors ${
+                className={`py-2 px-2 rounded-xl text-center font-semibold transition-all cursor-pointer ${
                   printSettings.printMode === 'filled'
-                    ? 'bg-white dark:bg-[#2a2a2a] text-[#0067C0] dark:text-[#4cc2ff] font-semibold shadow-xs'
-                    : 'text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-slate-100'
+                    ? 'liquid-cta text-white'
+                    : 'text-slate-600 dark:text-slate-300 hover:text-slate-900 dark:hover:text-white'
                 }`}
               >
-                تکمیل‌شده (داده‌ها)
+                با نوشته‌های من
               </button>
               <button
                 onClick={() => setPrintSettings((s) => ({ ...s, printMode: 'blank' }))}
-                className={`py-1.5 px-2 rounded text-center transition-colors ${
+                className={`py-2 px-2 rounded-xl text-center font-semibold transition-all cursor-pointer ${
                   printSettings.printMode === 'blank'
-                    ? 'bg-white dark:bg-[#2a2a2a] text-[#0067C0] dark:text-[#4cc2ff] font-semibold shadow-xs'
-                    : 'text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-slate-100'
+                    ? 'liquid-cta text-white'
+                    : 'text-slate-600 dark:text-slate-300 hover:text-slate-900 dark:hover:text-white'
                 }`}
               >
-                فرم خام (خالی)
+                برگه خام و خالی
               </button>
             </div>
-            <p className="text-[10px] text-slate-400 dark:text-slate-500 mt-1">
-              حالت خام برای پر کردن دستی با خودکار مناسب است.
-            </p>
           </div>
 
-          {/* Paper Size & Orientation */}
-          <div className="space-y-2 pt-3 border-t border-slate-200 dark:border-slate-700/60">
-            <label className="font-semibold text-slate-800 dark:text-slate-200 block">اندازه کاغذ پرینتر:</label>
+          <div className="space-y-2.5 pt-3 border-t border-slate-300/40 dark:border-white/10">
+            <label className="font-semibold text-slate-900 dark:text-white block">
+              اندازه و جهت کاغذ:
+            </label>
             <select
               value={printSettings.paperSize}
               onChange={(e) => setPrintSettings((s) => ({ ...s, paperSize: e.target.value as any }))}
-              className="w-full bg-slate-50 dark:bg-[#2a2a2a] border border-slate-300 dark:border-[#3d3d3d] text-slate-800 dark:text-slate-100 rounded px-2.5 py-1.5 outline-none"
+              className="w-full h-10 liquid-glass-well text-slate-900 dark:text-slate-100 rounded-xl px-3 outline-none"
             >
               <option value="A4">A4 (۲۱۰ × ۲۹۷ میلی‌متر)</option>
               <option value="A5">A5 (۱۴۸ × ۲۱۰ میلی‌متر)</option>
@@ -146,59 +147,53 @@ export const PrintPreviewModal: React.FC<PrintPreviewModalProps> = ({
             <select
               value={printSettings.orientation}
               onChange={(e) => setPrintSettings((s) => ({ ...s, orientation: e.target.value as any }))}
-              className="w-full bg-slate-50 dark:bg-[#2a2a2a] border border-slate-300 dark:border-[#3d3d3d] text-slate-800 dark:text-slate-100 rounded px-2.5 py-1.5 outline-none"
+              className="w-full h-10 liquid-glass-well text-slate-900 dark:text-slate-100 rounded-xl px-3 outline-none"
             >
-              <option value="portrait">عمودی (Portrait)</option>
-              <option value="landscape">افقی (Landscape)</option>
+              <option value="portrait">عمودی</option>
+              <option value="landscape">افقی</option>
             </select>
           </div>
 
-          {/* Watermark in Print */}
-          <div className="space-y-2 pt-3 border-t border-slate-200 dark:border-slate-700/60">
+          <div className="space-y-2 pt-3 border-t border-slate-300/40 dark:border-white/10">
             <label className="flex items-center gap-2 cursor-pointer">
               <input
                 type="checkbox"
                 checked={printSettings.showWatermark}
                 onChange={(e) => setPrintSettings((s) => ({ ...s, showWatermark: e.target.checked }))}
-                className="rounded text-[#0067C0] dark:text-[#4cc2ff] focus:ring-0"
+                className="w-4 h-4 rounded text-sky-600 focus:ring-0"
               />
-              <span className="font-semibold text-slate-800 dark:text-slate-200">چاپ واترمارک روی برگه</span>
+              <span className="font-semibold text-slate-900 dark:text-white">
+                نوشته کم‌رنگ روی برگه (واترمارک)
+              </span>
             </label>
             {printSettings.showWatermark && (
               <input
                 type="text"
                 value={printSettings.watermarkText}
                 onChange={(e) => setPrintSettings((s) => ({ ...s, watermarkText: e.target.value }))}
-                placeholder="متن واترمارک (مثلاً: محرمانه)"
-                className="w-full bg-slate-50 dark:bg-[#2a2a2a] border border-slate-300 dark:border-[#3d3d3d] text-slate-800 dark:text-slate-100 rounded px-2 py-1 outline-none text-xs"
+                placeholder="مثلاً محرمانه"
+                className="w-full h-10 liquid-glass-well text-slate-900 dark:text-slate-100 rounded-xl px-3 outline-none text-xs"
               />
             )}
           </div>
 
-          {/* High Contrast / Save Ink Mode */}
-          <div className="space-y-2 pt-3 border-t border-slate-200 dark:border-slate-700/60">
+          <div className="space-y-2 pt-3 border-t border-slate-300/40 dark:border-white/10">
             <label className="flex items-center gap-2 cursor-pointer">
               <input
                 type="checkbox"
                 checked={printSettings.highContrastMode}
                 onChange={(e) => setPrintSettings((s) => ({ ...s, highContrastMode: e.target.checked }))}
-                className="rounded text-[#0067C0] dark:text-[#4cc2ff] focus:ring-0"
+                className="w-4 h-4 rounded text-sky-600 focus:ring-0"
               />
-              <span className="font-semibold text-slate-800 dark:text-slate-200">حالت صرفه‌جویی در جوهر (سیاه و سفید)</span>
+              <span className="font-semibold text-slate-900 dark:text-white">
+                چاپ سیاه و سفید پررنگ
+              </span>
             </label>
-            <p className="text-[10px] text-slate-400 dark:text-slate-500">
-              حذف پس‌زمینه‌ها و افزایش وضوح خطوط برای دستگاه‌های چاپ لیزری.
-            </p>
-          </div>
-
-          {/* Print instructions */}
-          <div className="bg-blue-50 dark:bg-blue-950/40 border border-blue-200 dark:border-blue-900 p-2.5 rounded text-[11px] text-blue-900 dark:text-blue-300 leading-relaxed">
-            💡 <strong>راهنما:</strong> در پنجره پرینت ویندوز، گزینه <em>«Margins»</em> را روی <em>«Default»</em> یا <em>«Minimum»</em> قرار داده و گزینه <em>«Background Graphics»</em> را علامت بزنید.
           </div>
         </aside>
 
         {/* Live Canvas Sheet Preview */}
-        <div className="flex-1 bg-slate-700/80 dark:bg-[#111215] overflow-auto p-6 flex justify-center items-start transition-colors">
+        <div className="flex-1 bg-slate-200/45 dark:bg-slate-950/55 lg:overflow-auto p-3 sm:p-6 flex justify-center items-start transition-colors">
           <FormCanvas
             template={previewTemplate}
             selectedFieldId={null}

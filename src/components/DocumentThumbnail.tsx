@@ -1,6 +1,7 @@
 import React from 'react';
 import { FormRecord, FormTemplate } from '../types/form';
 import { toPersianDigits } from '../utils/formLogic';
+import { resolveHeaderLogo } from '../utils/companyBrand';
 import { FileText, Eye, Printer } from 'lucide-react';
 
 interface DocumentThumbnailProps {
@@ -9,6 +10,7 @@ interface DocumentThumbnailProps {
   size?: 'sm' | 'md' | 'lg';
   onClick?: () => void;
   onPrint?: () => void;
+  disableHoverOverlay?: boolean;
 }
 
 export const DocumentThumbnail: React.FC<DocumentThumbnailProps> = ({
@@ -17,6 +19,7 @@ export const DocumentThumbnail: React.FC<DocumentThumbnailProps> = ({
   size = 'md',
   onClick,
   onPrint,
+  disableHoverOverlay = false,
 }) => {
   const isLandscape = template.orientation === 'landscape';
 
@@ -48,75 +51,89 @@ export const DocumentThumbnail: React.FC<DocumentThumbnailProps> = ({
   const title = headerField?.headerTitle || template.title || 'حواله انبار';
   const docNo = record.data?.['f_doc_no'] || record.recordNumber || '۱';
   const docDate = record.data?.['f_doc_date'] || (record.createdAt ? new Date(record.createdAt).toLocaleDateString('fa-IR') : '۱۴۰۵');
+  const logoInfo = resolveHeaderLogo(headerField);
 
   return (
     <div
       onClick={onClick}
-      className={`group relative cursor-pointer ${sizeClasses} bg-white dark:bg-[#1a1f26] border border-slate-300 dark:border-slate-600 rounded-sm shadow-xs hover:shadow-md transition-all duration-200 select-none overflow-hidden flex flex-col justify-between p-1`}
+      className={`group relative ${onClick ? 'cursor-pointer' : ''} ${sizeClasses} bg-white text-slate-900 border border-slate-300 dark:border-white/30 rounded-md shadow-sm hover:shadow-md transition-all duration-200 select-none overflow-hidden flex flex-col justify-between p-1`}
       dir="rtl"
       title={`پیش‌نمایش سند #${docNo} - ${title}`}
     >
       {/* 1. Miniature 3-box Header */}
-      <div className="border border-slate-800 dark:border-slate-400 grid grid-cols-3 divide-x divide-x-reverse divide-slate-800 dark:divide-slate-400 bg-slate-50 dark:bg-slate-800/80 leading-none">
+      <div className="border border-slate-800 grid grid-cols-3 divide-x divide-x-reverse divide-slate-800 bg-slate-50 leading-none">
         {/* Right: Date & Number */}
         <div className="p-0.5 truncate flex flex-col justify-center">
-          <span className="font-mono font-bold text-slate-800 dark:text-slate-200 truncate">
+          <span className="font-sans tabular-nums font-bold text-slate-800 truncate">
             #{toPersianDigits(docNo)}
           </span>
-          <span className="text-slate-500 text-[80%] truncate">
+          <span className="font-sans tabular-nums text-slate-500 text-[80%] truncate">
             {toPersianDigits(docDate)}
           </span>
         </div>
 
         {/* Center: Title */}
-        <div className="p-0.5 flex flex-col items-center justify-center text-center font-black bg-slate-200 dark:bg-slate-700/80 text-slate-900 dark:text-slate-100 truncate">
+        <div className="p-0.5 flex flex-col items-center justify-center text-center font-black bg-slate-200 text-slate-900 truncate">
           <span className="truncate">{title}</span>
         </div>
 
-        {/* Left: AWOX Logo */}
-        <div className="p-0.5 flex items-center justify-center font-bold text-slate-800 dark:text-slate-200">
-          <span className="font-sans font-black tracking-tighter text-[90%]">AWOX</span>
-          <span className="text-orange-500 mr-0.5">◆</span>
+        {/* Left: Company Logo */}
+        <div className="p-0.5 flex items-center justify-center font-bold text-slate-800 overflow-hidden">
+          {logoInfo.mode === 'custom' && logoInfo.logoUrl ? (
+            <img
+              src={logoInfo.logoUrl}
+              alt={headerField?.companyName || 'لوگو'}
+              className="max-h-4 max-w-full object-contain"
+            />
+          ) : logoInfo.mode === 'none' ? (
+            <span className="text-[75%] truncate">{headerField?.companyName || ''}</span>
+          ) : (
+            <>
+              <span className="font-sans font-black tracking-tighter text-[90%]">AWOX</span>
+              <span className="text-orange-500 mr-0.5">◆</span>
+            </>
+          )}
         </div>
       </div>
 
       {/* 2. Miniature Table Grid */}
-      <div className="flex-1 my-0.5 border border-slate-800 dark:border-slate-400 flex flex-col bg-white dark:bg-[#151920] overflow-hidden">
+      <div className="flex-1 my-0.5 border border-slate-800 flex flex-col bg-white overflow-hidden">
         {/* Header row */}
-        <div className="bg-slate-100 dark:bg-slate-800 border-b border-slate-800 dark:border-slate-400 px-1 py-0.5 flex justify-between font-bold text-slate-700 dark:text-slate-300">
+        <div className="bg-slate-100 border-b border-slate-800 px-1 py-0.5 flex justify-between font-bold text-slate-700">
           <span>شرح کالا</span>
           <span>تعداد</span>
         </div>
 
         {/* 3 mini item lines */}
-        <div className="flex-1 flex flex-col justify-around px-1 py-0.5 space-y-0.5 text-slate-800 dark:text-slate-200">
+        <div className="flex-1 flex flex-col justify-around px-1 py-0.5 space-y-0.5 text-slate-800">
           {items.length > 0 ? (
             items.map((item, idx) => (
-              <div key={idx} className="flex justify-between items-center border-b border-dotted border-slate-200 dark:border-slate-700 last:border-0 truncate">
+              <div key={idx} className="flex justify-between items-center border-b border-dotted border-slate-200 last:border-0 truncate">
                 <span className="truncate max-w-[80%] font-medium">{item}</span>
-                <span className="font-mono text-slate-500">۱</span>
+                <span className="font-sans tabular-nums text-slate-500">۱</span>
               </div>
             ))
           ) : (
             <>
-              <div className="h-1 bg-slate-200 dark:bg-slate-700 rounded-xs w-5/6"></div>
-              <div className="h-1 bg-slate-200 dark:bg-slate-700 rounded-xs w-4/6"></div>
-              <div className="h-1 bg-slate-200 dark:bg-slate-700 rounded-xs w-3/6"></div>
+              <div className="h-1 bg-slate-200 rounded-xs w-5/6"></div>
+              <div className="h-1 bg-slate-200 rounded-xs w-4/6"></div>
+              <div className="h-1 bg-slate-200 rounded-xs w-3/6"></div>
             </>
           )}
         </div>
       </div>
 
       {/* 3. Miniature Signatures */}
-      <div className="border border-slate-800 dark:border-slate-400 grid grid-cols-4 divide-x divide-x-reverse divide-slate-800 dark:divide-slate-400 text-center bg-slate-50 dark:bg-slate-800/60 h-2.5">
-        <span className="text-slate-400 leading-none self-center">امضا</span>
-        <span className="text-slate-400 leading-none self-center">انبار</span>
-        <span className="text-slate-400 leading-none self-center">مدیر</span>
-        <span className="text-slate-400 leading-none self-center">مالی</span>
+      <div className="border border-slate-800 grid grid-cols-4 divide-x divide-x-reverse divide-slate-800 text-center bg-slate-50 h-2.5">
+        <span className="text-slate-500 leading-none self-center">امضا</span>
+        <span className="text-slate-500 leading-none self-center">انبار</span>
+        <span className="text-slate-500 leading-none self-center">مدیر</span>
+        <span className="text-slate-500 leading-none self-center">مالی</span>
       </div>
 
       {/* Hover Overlay with Quick Action Buttons */}
-      <div className="absolute inset-0 bg-slate-900/70 backdrop-blur-2xs opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center gap-1.5 p-1">
+      {!disableHoverOverlay && (
+        <div className="absolute inset-0 bg-slate-900/70 backdrop-blur-2xs opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center gap-1.5 p-1">
         {onClick && (
           <button
             type="button"
@@ -144,6 +161,7 @@ export const DocumentThumbnail: React.FC<DocumentThumbnailProps> = ({
           </button>
         )}
       </div>
+      )}
     </div>
   );
 };
