@@ -28,6 +28,8 @@ import {
   PackageCheck,
   Wrench,
   Receipt,
+  FileDown,
+  GitBranch,
 } from 'lucide-react';
 import { FormTemplate } from '../types/form';
 import { RibbonTab } from './RibbonBar';
@@ -44,6 +46,8 @@ interface AppVerticalSidebarProps {
   onSelectTemplate: (template: FormTemplate) => void;
   onSaveRecord: () => void;
   onQuickPrint: () => void;
+  onExportPdf?: () => void;
+  isExportingPdf?: boolean;
   onPreviewPrint: () => void;
   onNewVoucher: () => void;
   onResetCanvas: () => void;
@@ -55,6 +59,8 @@ interface AppVerticalSidebarProps {
   onSaveActiveTemplate?: () => void;
   onDuplicateActiveTemplate?: () => void;
   onDeleteActiveTemplate?: () => void;
+  onOpenGitHubUpdate?: () => void;
+  hasGitHubUpdate?: boolean;
   recordsCount: number;
   themeMode?: ThemeMode;
   onThemeChange?: (mode: ThemeMode) => void;
@@ -73,6 +79,8 @@ export const AppVerticalSidebar: React.FC<AppVerticalSidebarProps> = ({
   onSelectTemplate,
   onSaveRecord,
   onQuickPrint,
+  onExportPdf,
+  isExportingPdf = false,
   onNewVoucher,
   onResetCanvas,
   onExportCsv,
@@ -83,6 +91,8 @@ export const AppVerticalSidebar: React.FC<AppVerticalSidebarProps> = ({
   onSaveActiveTemplate,
   onDuplicateActiveTemplate,
   onDeleteActiveTemplate,
+  onOpenGitHubUpdate,
+  hasGitHubUpdate = false,
   recordsCount,
   themeMode = 'system',
   onThemeChange,
@@ -409,6 +419,24 @@ export const AppVerticalSidebar: React.FC<AppVerticalSidebarProps> = ({
                     <span className="truncate">چاپ سریع</span>
                   </button>
 
+                  {onExportPdf && (
+                    <button
+                      type="button"
+                      data-testid="sidebar-export-pdf-btn"
+                      disabled={isExportingPdf}
+                      onClick={() => {
+                        onExportPdf();
+                        closeOnMobile();
+                      }}
+                      className="w-full flex items-center gap-2.5 px-3 py-2 rounded-xl text-right font-medium text-rose-700 dark:text-rose-300 hover:bg-rose-500/10 disabled:opacity-50 transition-colors cursor-pointer"
+                    >
+                      <FileDown className="w-4 h-4 shrink-0" />
+                      <span className="truncate">
+                        {isExportingPdf ? 'در حال ساخت PDF...' : 'خروجی PDF برگه'}
+                      </span>
+                    </button>
+                  )}
+
                   {/* Quick template switcher inside Advanced */}
                   <div className="pt-2 border-t border-white/50 dark:border-white/10 space-y-1">
                     <div className="px-2 text-[10px] font-semibold text-slate-400 dark:text-slate-500">
@@ -536,6 +564,41 @@ export const AppVerticalSidebar: React.FC<AppVerticalSidebarProps> = ({
                   )}
                 </div>
               )}
+            </div>
+          )}
+
+          {/* GitHub Update Check Entry */}
+          {onOpenGitHubUpdate && (
+            <div className="pt-3 border-t border-white/60 dark:border-white/10">
+              <button
+                type="button"
+                data-testid="sidebar-github-update-btn"
+                onClick={() => {
+                  onOpenGitHubUpdate();
+                  closeOnMobile();
+                }}
+                aria-label="بروزرسانی نرم‌افزار از گیتهاب"
+                title={effectiveCollapsed ? 'بروزرسانی از گیتهاب' : undefined}
+                className={`w-full flex items-center ${
+                  effectiveCollapsed ? 'justify-center px-2' : 'justify-between px-3'
+                } py-2.5 rounded-2xl text-xs font-semibold transition-colors cursor-pointer ${
+                  hasGitHubUpdate
+                    ? 'bg-amber-500/15 border border-amber-400/40 text-amber-800 dark:text-amber-200 hover:bg-amber-500/20'
+                    : 'text-slate-700 dark:text-slate-200 hover:bg-white/60 dark:hover:bg-white/10'
+                }`}
+              >
+                <span className="flex items-center gap-2.5 min-w-0">
+                  <GitBranch className="w-4 h-4 shrink-0" />
+                  {!effectiveCollapsed && (
+                    <span className="truncate">بروزرسانی از گیتهاب</span>
+                  )}
+                </span>
+                {hasGitHubUpdate && !effectiveCollapsed && (
+                  <span className="text-[11px] font-bold text-amber-700 dark:text-amber-300 shrink-0">
+                    جدید
+                  </span>
+                )}
+              </button>
             </div>
           )}
         </div>

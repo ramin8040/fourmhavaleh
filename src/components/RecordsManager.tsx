@@ -1,4 +1,5 @@
 import React, { useState, useRef, useEffect } from 'react';
+import { createPortal } from 'react-dom';
 import { FormRecord, FormTemplate } from '../types/form';
 import { toPersianDigits, filterFormRecords } from '../utils/formLogic';
 import {
@@ -23,6 +24,7 @@ import {
   User,
   Hash,
   Package,
+  FileDown,
 } from 'lucide-react';
 import { ShamsiDatePicker } from './ShamsiDatePicker';
 import {
@@ -43,6 +45,8 @@ interface RecordsManagerProps {
   onLoadRecord: (record: FormRecord) => void;
   onDeleteRecord: (id: string) => void;
   onPrintRecord: (record: FormRecord) => void;
+  onExportRecordPdf?: (record: FormRecord) => void;
+  isExportingPdf?: boolean;
   onExportCsv: () => void;
   onExportBackup: () => void;
   onImportBackupFile: (file: File) => void;
@@ -56,6 +60,8 @@ export const RecordsManager: React.FC<RecordsManagerProps> = ({
   onLoadRecord,
   onDeleteRecord,
   onPrintRecord,
+  onExportRecordPdf,
+  isExportingPdf = false,
   onExportCsv,
   onExportBackup,
   onImportBackupFile,
@@ -221,10 +227,10 @@ export const RecordsManager: React.FC<RecordsManagerProps> = ({
   };
 
   return (
-    <div className="flex-1 overflow-y-auto p-3 sm:p-5 md:p-6 flex flex-col gap-4 transition-colors">
+    <div className="relative z-0 flex-1 overflow-y-auto p-3 sm:p-5 md:p-6 flex flex-col gap-4 transition-colors">
       <div className="max-w-7xl w-full mx-auto flex flex-col gap-4 flex-1">
         {/* Friendly Liquid Glass Header */}
-        <div className="liquid-glass rounded-3xl p-4 sm:p-5 flex flex-col lg:flex-row lg:items-center lg:justify-between gap-3.5">
+        <div className="relative z-10 liquid-glass rounded-3xl p-4 sm:p-5 flex flex-col lg:flex-row lg:items-center lg:justify-between gap-3.5">
           <div className="flex items-center gap-3 min-w-0">
             <div className="w-11 h-11 rounded-2xl bg-sky-500/15 dark:bg-sky-400/20 border border-sky-400/35 flex items-center justify-center text-sky-700 dark:text-sky-300 shrink-0">
               <Database className="w-5 h-5" />
@@ -296,25 +302,25 @@ export const RecordsManager: React.FC<RecordsManagerProps> = ({
           </div>
         </div>
 
-        {/* Calm Search & Filter Bar */}
-        <div className="liquid-glass rounded-3xl overflow-hidden text-xs">
+        {/* Calm Search & Filter Bar (layered above Records Content Area) */}
+        <div className="relative z-30 liquid-glass rounded-3xl overflow-visible text-xs">
           <div className="p-3.5 flex flex-wrap items-center gap-2.5">
             {/* Quick Search */}
-            <div className="relative w-full sm:flex-1 sm:min-w-[220px]">
+            <div className="relative z-10 focus-within:z-20 w-full sm:flex-1 sm:min-w-[220px]">
               <input
                 type="text"
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
                 placeholder="دنبال چه برگه‌ای هستید؟ (نام مشتری، شماره، اسم کالا...)"
                 aria-label="جستجو در برگه‌های ذخیره شده"
-                className="w-full h-11 pl-9 pr-10 liquid-glass-well rounded-2xl text-xs sm:text-sm text-slate-900 dark:text-slate-100 outline-none focus:ring-2 focus:ring-sky-500/40 placeholder:text-slate-500 dark:placeholder:text-slate-400"
+                className="relative z-10 w-full h-11 pl-9 pr-10 liquid-glass-well rounded-2xl text-xs sm:text-sm text-slate-900 dark:text-slate-100 outline-none focus:ring-2 focus:ring-sky-500/40 placeholder:text-slate-500 dark:placeholder:text-slate-400"
               />
-              <Search className="w-4 h-4 text-slate-500 dark:text-slate-400 absolute right-3.5 top-3.5 pointer-events-none" />
+              <Search className="w-4 h-4 text-slate-500 dark:text-slate-400 absolute right-3.5 top-3.5 z-20 pointer-events-none" />
               {searchQuery && (
                 <button
                   type="button"
                   onClick={() => setSearchQuery('')}
-                  className="absolute left-3 top-3 text-slate-400 hover:text-slate-700 dark:hover:text-white p-0.5 rounded transition-colors cursor-pointer"
+                  className="absolute left-3 top-3 z-20 text-slate-400 hover:text-slate-700 dark:hover:text-white p-0.5 rounded transition-colors cursor-pointer"
                   title="پاک کردن جستجو"
                 >
                   <X className="w-4 h-4" />
@@ -323,7 +329,7 @@ export const RecordsManager: React.FC<RecordsManagerProps> = ({
             </div>
 
             {/* Form Template Filter */}
-            <div className="h-11 flex items-center gap-2 liquid-glass-well rounded-2xl px-3">
+            <div className="relative z-10 focus-within:z-20 h-11 flex items-center gap-2 liquid-glass-well rounded-2xl px-3">
               <span className="text-slate-500 dark:text-slate-400 whitespace-nowrap text-xs font-medium">
                 نوع برگه:
               </span>
@@ -407,8 +413,8 @@ export const RecordsManager: React.FC<RecordsManagerProps> = ({
 
           {/* Collapsible Advanced Criteria Panel */}
           {isAdvancedOpen && (
-            <div className="bg-white/45 dark:bg-slate-900/45 p-4 border-t border-slate-300/40 dark:border-white/10 grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
-              <div className="space-y-1.5">
+            <div className="relative z-20 bg-white/55 dark:bg-slate-900/55 p-4 border-t border-slate-300/40 dark:border-white/10 grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+              <div className="space-y-1.5 relative z-10 focus-within:z-20">
                 <label className="flex items-center gap-1.5 font-bold text-slate-800 dark:text-slate-100 text-xs">
                   <Hash className="w-3.5 h-3.5 text-sky-700 dark:text-sky-300" />
                   <span>شماره برگه:</span>
@@ -419,13 +425,13 @@ export const RecordsManager: React.FC<RecordsManagerProps> = ({
                     value={documentNumber}
                     onChange={(e) => setDocumentNumber(e.target.value)}
                     placeholder="مثلاً DOC-1403-0001"
-                    className="w-full h-10 pl-7 pr-3 liquid-glass-well rounded-xl text-xs text-slate-900 dark:text-slate-100 outline-none focus:ring-2 focus:ring-sky-500/40 font-mono"
+                    className="relative z-10 w-full h-10 pl-7 pr-3 liquid-glass-well rounded-xl text-xs text-slate-900 dark:text-slate-100 outline-none focus:ring-2 focus:ring-sky-500/40 font-mono"
                   />
                   {documentNumber && (
                     <button
                       type="button"
                       onClick={() => setDocumentNumber('')}
-                      className="absolute left-2 top-2.5 text-slate-400 hover:text-slate-700 dark:hover:text-white cursor-pointer"
+                      className="absolute left-2 top-2.5 z-20 text-slate-400 hover:text-slate-700 dark:hover:text-white cursor-pointer"
                     >
                       <X className="w-3.5 h-3.5" />
                     </button>
@@ -433,7 +439,7 @@ export const RecordsManager: React.FC<RecordsManagerProps> = ({
                 </div>
               </div>
 
-              <div className="space-y-1.5">
+              <div className="space-y-1.5 relative z-10 focus-within:z-20">
                 <label className="flex items-center gap-1.5 font-bold text-slate-800 dark:text-slate-100 text-xs">
                   <User className="w-3.5 h-3.5 text-emerald-600 dark:text-emerald-400" />
                   <span>نام مشتری / تحویل‌گیرنده:</span>
@@ -444,13 +450,13 @@ export const RecordsManager: React.FC<RecordsManagerProps> = ({
                     value={customerName}
                     onChange={(e) => setCustomerName(e.target.value)}
                     placeholder="مثلاً شرکت آریا"
-                    className="w-full h-10 pl-7 pr-3 liquid-glass-well rounded-xl text-xs text-slate-900 dark:text-slate-100 outline-none focus:ring-2 focus:ring-sky-500/40"
+                    className="relative z-10 w-full h-10 pl-7 pr-3 liquid-glass-well rounded-xl text-xs text-slate-900 dark:text-slate-100 outline-none focus:ring-2 focus:ring-sky-500/40"
                   />
                   {customerName && (
                     <button
                       type="button"
                       onClick={() => setCustomerName('')}
-                      className="absolute left-2 top-2.5 text-slate-400 hover:text-slate-700 dark:hover:text-white cursor-pointer"
+                      className="absolute left-2 top-2.5 z-20 text-slate-400 hover:text-slate-700 dark:hover:text-white cursor-pointer"
                     >
                       <X className="w-3.5 h-3.5" />
                     </button>
@@ -458,7 +464,7 @@ export const RecordsManager: React.FC<RecordsManagerProps> = ({
                 </div>
               </div>
 
-              <div className="space-y-1.5">
+              <div className="space-y-1.5 relative z-10 focus-within:z-20">
                 <label className="flex items-center gap-1.5 font-bold text-slate-800 dark:text-slate-100 text-xs">
                   <Package className="w-3.5 h-3.5 text-amber-600 dark:text-amber-400" />
                   <span>نام کالا یا سریال:</span>
@@ -469,13 +475,13 @@ export const RecordsManager: React.FC<RecordsManagerProps> = ({
                     value={itemQuery}
                     onChange={(e) => setItemQuery(e.target.value)}
                     placeholder="مثلاً کابل شبکه"
-                    className="w-full h-10 pl-7 pr-3 liquid-glass-well rounded-xl text-xs text-slate-900 dark:text-slate-100 outline-none focus:ring-2 focus:ring-sky-500/40"
+                    className="relative z-10 w-full h-10 pl-7 pr-3 liquid-glass-well rounded-xl text-xs text-slate-900 dark:text-slate-100 outline-none focus:ring-2 focus:ring-sky-500/40"
                   />
                   {itemQuery && (
                     <button
                       type="button"
                       onClick={() => setItemQuery('')}
-                      className="absolute left-2 top-2.5 text-slate-400 hover:text-slate-700 dark:hover:text-white cursor-pointer"
+                      className="absolute left-2 top-2.5 z-20 text-slate-400 hover:text-slate-700 dark:hover:text-white cursor-pointer"
                     >
                       <X className="w-3.5 h-3.5" />
                     </button>
@@ -483,7 +489,7 @@ export const RecordsManager: React.FC<RecordsManagerProps> = ({
                 </div>
               </div>
 
-              <div className="space-y-1.5">
+              <div className="space-y-1.5 relative z-20">
                 <label className="flex items-center gap-1.5 font-bold text-slate-800 dark:text-slate-100 text-xs">
                   <CalendarRange className="w-3.5 h-3.5 text-indigo-600 dark:text-indigo-400" />
                   <span>تاریخ برگه:</span>
@@ -540,7 +546,7 @@ export const RecordsManager: React.FC<RecordsManagerProps> = ({
           )}
 
           {/* Quiet Filter Summary Footer */}
-          <div className="px-4 py-2.5 bg-white/35 dark:bg-slate-900/35 border-t border-slate-300/40 dark:border-white/10 flex flex-wrap items-center justify-between gap-2 text-xs">
+          <div className="relative z-10 px-4 py-2.5 bg-white/35 dark:bg-slate-900/35 border-t border-slate-300/40 dark:border-white/10 rounded-b-3xl flex flex-wrap items-center justify-between gap-2 text-xs">
             <div className="flex flex-wrap items-center gap-2 text-slate-600 dark:text-slate-300">
               {!isFiltered ? (
                 <span>نمایش همه برگه‌ها</span>
@@ -617,7 +623,7 @@ export const RecordsManager: React.FC<RecordsManagerProps> = ({
         </div>
 
         {/* Records Content Area */}
-        <div className="liquid-glass rounded-3xl overflow-hidden flex-1 flex flex-col min-h-[420px]">
+        <div className="relative z-10 liquid-glass rounded-3xl overflow-hidden flex-1 flex flex-col min-h-[420px]">
           {filteredRecords.length === 0 ? (
             <div className="flex-1 flex flex-col items-center justify-center p-12 text-center min-h-[380px]">
               <FolderOpen className="w-12 h-12 text-slate-400 dark:text-slate-500 mb-3" />
@@ -669,7 +675,7 @@ export const RecordsManager: React.FC<RecordsManagerProps> = ({
                       data-record-id={rec.id}
                       onMouseEnter={(e) => handleRecordMouseEnter(e, rec, currentTpl)}
                       onMouseLeave={handleRecordMouseLeave}
-                      className="liquid-glass-elevated rounded-3xl hover:-translate-y-0.5 transition-all flex flex-col justify-between overflow-hidden"
+                      className="relative z-0 hover:z-20 focus-within:z-20 liquid-glass-elevated rounded-3xl hover:-translate-y-0.5 transition-all flex flex-col justify-between overflow-hidden"
                     >
                       {/* Top row */}
                       <div className="px-3.5 py-2.5 bg-white/40 dark:bg-slate-900/40 border-b border-slate-300/35 dark:border-white/10 flex items-center justify-between gap-2">
@@ -719,6 +725,20 @@ export const RecordsManager: React.FC<RecordsManagerProps> = ({
                           <span>باز کردن</span>
                         </button>
 
+                        {onExportRecordPdf && (
+                          <button
+                            type="button"
+                            data-testid="record-card-pdf-btn"
+                            disabled={isExportingPdf}
+                            aria-label={`خروجی PDF برگه ${rec.recordNumber}`}
+                            onClick={() => onExportRecordPdf(rec)}
+                            className="w-9 h-9 rounded-xl liquid-glass-well flex items-center justify-center text-rose-600 dark:text-rose-300 hover:bg-rose-500/15 disabled:opacity-50 transition-colors cursor-pointer"
+                            title="دانلود فایل PDF"
+                          >
+                            <FileDown className="w-4 h-4" />
+                          </button>
+                        )}
+
                         <button
                           type="button"
                           onClick={() => onPrintRecord(rec)}
@@ -754,7 +774,7 @@ export const RecordsManager: React.FC<RecordsManagerProps> = ({
               className="overflow-x-auto flex-1"
             >
               <table className="w-full min-w-[700px] text-right border-collapse text-xs">
-                <thead className="bg-white/45 dark:bg-slate-900/45 text-slate-700 dark:text-slate-200 font-semibold border-b border-slate-300/40 dark:border-white/10">
+                <thead className="sticky top-0 z-10 bg-white/90 dark:bg-slate-900/90 backdrop-blur-md text-slate-700 dark:text-slate-200 font-semibold border-b border-slate-300/40 dark:border-white/10">
                   <tr>
                     <th className="p-3 w-10 text-center">ردیف</th>
                     <th className="p-2 w-28 text-center">تصویر برگه</th>
@@ -842,6 +862,19 @@ export const RecordsManager: React.FC<RecordsManagerProps> = ({
                             >
                               <Eye className="w-4 h-4" />
                             </button>
+                            {onExportRecordPdf && (
+                              <button
+                                type="button"
+                                data-testid="record-row-pdf-btn"
+                                disabled={isExportingPdf}
+                                aria-label={`خروجی PDF برگه ${rec.recordNumber}`}
+                                onClick={() => onExportRecordPdf(rec)}
+                                className="p-2 rounded-xl hover:bg-rose-500/15 text-rose-600 dark:text-rose-300 disabled:opacity-50 transition-colors cursor-pointer"
+                                title="دانلود PDF"
+                              >
+                                <FileDown className="w-4 h-4" />
+                              </button>
+                            )}
                             <button
                               type="button"
                               onClick={() => onPrintRecord(rec)}
@@ -876,132 +909,157 @@ export const RecordsManager: React.FC<RecordsManagerProps> = ({
         </div>
       </div>
 
-      {/* Enlarged Thumbnail Preview Modal */}
-      {previewRecord && (
-        <div
-          className="fixed inset-0 z-50 bg-slate-950/45 backdrop-blur-sm flex items-center justify-center p-4"
-          onClick={() => setPreviewRecord(null)}
-        >
+      {/* Enlarged Thumbnail Preview Modal (Portaled to Top Layer) */}
+      {previewRecord &&
+        typeof document !== 'undefined' &&
+        createPortal(
           <div
-            className="liquid-glass-elevated rounded-3xl max-w-xl w-full overflow-hidden flex flex-col"
-            onClick={(e) => e.stopPropagation()}
-            dir="rtl"
+            role="dialog"
+            aria-modal="true"
+            style={{ zIndex: 9990 }}
+            className="fixed inset-0 bg-slate-950/50 backdrop-blur-sm flex items-center justify-center p-4"
+            onClick={() => setPreviewRecord(null)}
           >
-            <div className="px-5 py-3.5 border-b border-slate-300/40 dark:border-white/10 flex items-center justify-between">
-              <span className="font-bold text-sm text-slate-900 dark:text-white">
-                پیش‌نمایش برگه {previewRecord.recordNumber}
-              </span>
-              <button
-                type="button"
-                onClick={() => setPreviewRecord(null)}
-                className="w-8 h-8 rounded-xl flex items-center justify-center text-slate-500 hover:text-slate-900 dark:hover:text-white hover:bg-white/60 dark:hover:bg-slate-800/60 transition-colors cursor-pointer"
-              >
-                <X className="w-4 h-4" />
-              </button>
-            </div>
-
-            <div className="p-6 bg-white/30 dark:bg-slate-950/35 flex items-center justify-center">
-              <DocumentThumbnail
-                record={previewRecord}
-                template={templates.find((t) => t.id === previewRecord.formId) || activeTemplate}
-                size="lg"
-              />
-            </div>
-
-            <div className="px-5 py-3.5 border-t border-slate-300/40 dark:border-white/10 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2.5">
-              <span className="text-xs text-slate-600 dark:text-slate-300 font-sans tabular-nums">
-                تاریخ ثبت: {new Date(previewRecord.createdAt).toLocaleDateString('fa-IR')}
-              </span>
-              <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-2">
+            <div
+              className="liquid-glass-elevated bg-white/95 dark:bg-slate-900/95 shadow-2xl rounded-3xl max-w-xl w-full overflow-hidden flex flex-col"
+              onClick={(e) => e.stopPropagation()}
+              dir="rtl"
+            >
+              <div className="px-5 py-3.5 border-b border-slate-300/40 dark:border-white/10 flex items-center justify-between">
+                <span className="font-bold text-sm text-slate-900 dark:text-white">
+                  پیش‌نمایش برگه {previewRecord.recordNumber}
+                </span>
                 <button
                   type="button"
-                  onClick={() => {
-                    onPrintRecord(previewRecord);
-                    setPreviewRecord(null);
-                  }}
-                  className="h-10 px-4 rounded-xl liquid-cta-success text-xs font-bold flex items-center justify-center gap-1.5 cursor-pointer"
+                  onClick={() => setPreviewRecord(null)}
+                  className="w-8 h-8 rounded-xl flex items-center justify-center text-slate-500 hover:text-slate-900 dark:hover:text-white hover:bg-white/60 dark:hover:bg-slate-800/60 transition-colors cursor-pointer"
                 >
-                  <Printer className="w-4 h-4" />
-                  <span>چاپ برگه</span>
+                  <X className="w-4 h-4" />
+                </button>
+              </div>
+
+              <div className="p-6 bg-white/30 dark:bg-slate-950/35 flex items-center justify-center">
+                <DocumentThumbnail
+                  record={previewRecord}
+                  template={templates.find((t) => t.id === previewRecord.formId) || activeTemplate}
+                  size="lg"
+                />
+              </div>
+
+              <div className="px-5 py-3.5 border-t border-slate-300/40 dark:border-white/10 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2.5">
+                <span className="text-xs text-slate-600 dark:text-slate-300 font-sans tabular-nums">
+                  تاریخ ثبت: {new Date(previewRecord.createdAt).toLocaleDateString('fa-IR')}
+                </span>
+                <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-2">
+                  {onExportRecordPdf && (
+                    <button
+                      type="button"
+                      data-testid="record-preview-pdf-btn"
+                      disabled={isExportingPdf}
+                      onClick={() => {
+                        onExportRecordPdf(previewRecord);
+                        setPreviewRecord(null);
+                      }}
+                      className="h-10 px-4 rounded-xl liquid-glass-well border border-rose-400/40 bg-rose-500/12 hover:bg-rose-500/20 text-rose-700 dark:text-rose-200 text-xs font-bold flex items-center justify-center gap-1.5 disabled:opacity-50 cursor-pointer"
+                    >
+                      <FileDown className="w-4 h-4" />
+                      <span>دانلود PDF</span>
+                    </button>
+                  )}
+                  <button
+                    type="button"
+                    onClick={() => {
+                      onPrintRecord(previewRecord);
+                      setPreviewRecord(null);
+                    }}
+                    className="h-10 px-4 rounded-xl liquid-cta-success text-xs font-bold flex items-center justify-center gap-1.5 cursor-pointer"
+                  >
+                    <Printer className="w-4 h-4" />
+                    <span>چاپ برگه</span>
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      onLoadRecord(previewRecord);
+                      setPreviewRecord(null);
+                    }}
+                    className="h-10 px-4 rounded-xl liquid-cta text-xs font-bold flex items-center justify-center gap-1.5 cursor-pointer"
+                  >
+                    <Eye className="w-4 h-4" />
+                    <span>باز کردن و ویرایش</span>
+                  </button>
+                </div>
+              </div>
+            </div>
+          </div>,
+          document.body
+        )}
+
+      {/* In-App Delete Confirmation Dialog (Portaled to Top Layer, iframe-safe) */}
+      {pendingDeleteRecord &&
+        typeof document !== 'undefined' &&
+        createPortal(
+          <div
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="delete-record-dialog-title"
+            data-testid="record-delete-confirm-modal"
+            style={{ zIndex: 9992 }}
+            className="fixed inset-0 bg-slate-950/55 backdrop-blur-sm flex items-center justify-center p-4"
+            onClick={() => setPendingDeleteRecord(null)}
+          >
+            <div
+              className="liquid-glass-elevated bg-white/95 dark:bg-slate-900/95 shadow-2xl rounded-3xl max-w-sm w-full p-5 space-y-4 text-right"
+              onClick={(e) => e.stopPropagation()}
+              dir="rtl"
+            >
+              <div className="flex items-start gap-3">
+                <div className="w-11 h-11 rounded-2xl bg-rose-500/15 border border-rose-400/40 text-rose-600 dark:text-rose-300 flex items-center justify-center shrink-0">
+                  <Trash2 className="w-5 h-5" />
+                </div>
+                <div className="space-y-1 min-w-0">
+                  <h3
+                    id="delete-record-dialog-title"
+                    className="text-sm font-bold text-slate-900 dark:text-white leading-snug"
+                  >
+                    حذف برگه {pendingDeleteRecord.recordNumber}
+                  </h3>
+                  <p className="text-xs text-slate-600 dark:text-slate-300 leading-relaxed">
+                    آیا مطمئن هستید که می‌خواهید این برگه را از فهرست «برگه‌های من» حذف کنید؟
+                  </p>
+                </div>
+              </div>
+
+              <div className="flex items-center justify-end gap-2 pt-1">
+                <button
+                  type="button"
+                  data-testid="cancel-delete-record-btn"
+                  onClick={() => setPendingDeleteRecord(null)}
+                  className="h-10 px-4 rounded-xl liquid-glass-well text-xs font-semibold text-slate-700 dark:text-slate-200 hover:bg-white/80 dark:hover:bg-slate-800/70 transition-colors cursor-pointer"
+                >
+                  انصراف
                 </button>
                 <button
                   type="button"
+                  data-testid="confirm-delete-record-btn"
                   onClick={() => {
-                    onLoadRecord(previewRecord);
-                    setPreviewRecord(null);
+                    const targetId = pendingDeleteRecord.id;
+                    if (previewRecord?.id === targetId) {
+                      setPreviewRecord(null);
+                    }
+                    setPendingDeleteRecord(null);
+                    onDeleteRecord(targetId);
                   }}
-                  className="h-10 px-4 rounded-xl liquid-cta text-xs font-bold flex items-center justify-center gap-1.5 cursor-pointer"
+                  className="h-10 px-4 rounded-xl bg-rose-600 hover:bg-rose-700 text-white text-xs font-bold shadow-sm transition-colors flex items-center gap-1.5 cursor-pointer"
                 >
-                  <Eye className="w-4 h-4" />
-                  <span>باز کردن و ویرایش</span>
+                  <Trash2 className="w-3.5 h-3.5" />
+                  <span>بله، حذف شود</span>
                 </button>
               </div>
             </div>
-          </div>
-        </div>
-      )}
-
-      {/* In-App Delete Confirmation Dialog (iframe-safe) */}
-      {pendingDeleteRecord && (
-        <div
-          role="dialog"
-          aria-modal="true"
-          aria-labelledby="delete-record-dialog-title"
-          data-testid="record-delete-confirm-modal"
-          className="fixed inset-0 z-50 bg-slate-950/50 backdrop-blur-sm flex items-center justify-center p-4"
-          onClick={() => setPendingDeleteRecord(null)}
-        >
-          <div
-            className="liquid-glass-elevated rounded-3xl max-w-sm w-full p-5 space-y-4 text-right"
-            onClick={(e) => e.stopPropagation()}
-            dir="rtl"
-          >
-            <div className="flex items-start gap-3">
-              <div className="w-11 h-11 rounded-2xl bg-rose-500/15 border border-rose-400/40 text-rose-600 dark:text-rose-300 flex items-center justify-center shrink-0">
-                <Trash2 className="w-5 h-5" />
-              </div>
-              <div className="space-y-1 min-w-0">
-                <h3
-                  id="delete-record-dialog-title"
-                  className="text-sm font-bold text-slate-900 dark:text-white leading-snug"
-                >
-                  حذف برگه {pendingDeleteRecord.recordNumber}
-                </h3>
-                <p className="text-xs text-slate-600 dark:text-slate-300 leading-relaxed">
-                  آیا مطمئن هستید که می‌خواهید این برگه را از فهرست «برگه‌های من» حذف کنید؟
-                </p>
-              </div>
-            </div>
-
-            <div className="flex items-center justify-end gap-2 pt-1">
-              <button
-                type="button"
-                data-testid="cancel-delete-record-btn"
-                onClick={() => setPendingDeleteRecord(null)}
-                className="h-10 px-4 rounded-xl liquid-glass-well text-xs font-semibold text-slate-700 dark:text-slate-200 hover:bg-white/80 dark:hover:bg-slate-800/70 transition-colors cursor-pointer"
-              >
-                انصراف
-              </button>
-              <button
-                type="button"
-                data-testid="confirm-delete-record-btn"
-                onClick={() => {
-                  const targetId = pendingDeleteRecord.id;
-                  if (previewRecord?.id === targetId) {
-                    setPreviewRecord(null);
-                  }
-                  setPendingDeleteRecord(null);
-                  onDeleteRecord(targetId);
-                }}
-                className="h-10 px-4 rounded-xl bg-rose-600 hover:bg-rose-700 text-white text-xs font-bold shadow-sm transition-colors flex items-center gap-1.5 cursor-pointer"
-              >
-                <Trash2 className="w-3.5 h-3.5" />
-                <span>بله، حذف شود</span>
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
+          </div>,
+          document.body
+        )}
 
       {/* Hover Quick Preview Popover */}
       {hoveredPreview && !previewRecord && !pendingDeleteRecord && (

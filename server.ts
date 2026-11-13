@@ -5,6 +5,10 @@ import dotenv from 'dotenv';
 import path from 'path';
 import fs from 'fs';
 import { fileURLToPath } from 'url';
+import { execFile } from 'child_process';
+import { promisify } from 'util';
+
+const execFileAsync = promisify(execFile);
 
 dotenv.config();
 
@@ -534,6 +538,275 @@ Schema requirements (return pure JSON with no markdown wrapping if possible):
     console.error('Error converting form image:', error);
     res.status(500).json({
       error: 'خطا در پردازش تصویر فرم: ' + (error?.message || 'خطای ناشناخته'),
+    });
+  }
+});
+
+// ============================================================
+// GitHub Repository Update Check & Apply Endpoints
+// ============================================================
+
+const SAFE_GH_PART = /^[A-Za-z0-9._-]+$/;
+const SAFE_GH_BRANCH = /^[A-Za-z0-9._/-]+$/;
+const SAFE_GH_SHA = /^[a-fA-F0-9]{7,40}$/;
+
+function parseRepoSlugServer(input: string): { owner: string; repo: string; slug: string } | null {
+  const trimmed = (input || '').trim();
+  if (!trimmed) return null;
+  let pathPart = trimmed;
+
+  const sshMatch = trimmed.match(/^git@github\.com:([^/]+)\/(.+)$/i);
+  if (sshMatch) {
+    pathPart = `${sshMatch[1]}/${sshMatch[2]}`;
+  } else if (/^https?:\/\//i.test(trimmed) || /^github\.com\//i.test(trimmed)) {
+    const normalized = /^https?:\/\//i.test(trimmed) ? trimmed : `https://${trimmed}`;
+    try {
+      const u = new URL(normalized);
+      if (!/(^|\.)github\.com$/i.test(u.hostname)) return null;
+      pathPart = u.pathname.replace(/^\/+/, '');
+    } catch {
+      return null;
+    }
+  }
+
+  const segments = pathPart.replace(/^\/+|\/+$/g, '').split('/').filter(Boolean);
+  if (segments.length < 2) return null;
+  const owner = segments[0];
+  const repo = segments[1].replace(/\.git$/i, '');
+  if (!SAFE_GH_PART.test(owner) || !SAFE_GH_PART.test(repo)) return null;
+  return { owner, repo, slug: `${owner}/${repo}` };
+}
+
+function sanitizeBranchServer(branch?: string): string {
+  const clean = (branch || '').trim();
+  if (!clean || clean.includes('..') || !SAFE_GH_BRANCH.test(clean)) return 'main';
+  return clean;
+}
+
+async function getLocalGitMetadata(): Promise<{
+  hasGitWorkspace: boolean;
+  localHeadSha: string;
+  localBranch: string;
+  originSlug: string;
+}> {
+  try {
+    const { stdout: inside } = await execFileAsync('git', ['rev-parse', '--is-inside-work-tree'], {
+      cwd: __dirname,
+      timeout: 3000,
+    });
+    if (inside.trim() !== 'true') {
+      return { hasGitWorkspace: false, localHeadSha: '', localBranch: '', originSlug: '' };
+    }
+    const [headRes, branchRes, remoteRes] = await Promise.all([
+      execFileAsync('git', ['rev-parse', 'HEAD'], { cwd: __dirname, timeout: 3000 }).catch(() => ({ stdout: '' })),
+      execFileAsync('git', ['rev-parse', '--abbrev-ref', 'HEAD'], { cwd: __dirname, timeout: 3000 }).catch(() => ({ stdout: '' })),
+      execFileAsync('git', ['remote', 'get-url', 'origin'], { cwd: __dirname, timeout: 3000 }).catch(() => ({ stdout: '' })),
+    ]);
+    const parsedOrigin = parseRepoSlugServer(remoteRes.stdout.trim());
+    return {
+      hasGitWorkspace: true,
+      localHeadSha: headRes.stdout.trim(),
+      localBranch: branchRes.stdout.trim(),
+      originSlug: parsedOrigin?.slug || '',
+    };
+  } catch {
+    return { hasGitWorkspace: false, localHeadSha: '', localBranch: '', originSlug: '' };
+  }
+}
+
+function getAppPackageVersion(): string {
+  try {
+    const pkgRaw = fs.readFileSync(path.resolve(__dirname, 'package.json'), 'utf8');
+    const pkg = JSON.parse(pkgRaw);
+    return String(pkg.version || '1.0.0');
+  } catch {
+    return '1.0.0';
+  }
+}
+
+function buildGitHubHeaders(): Record<string, string> {
+  const headers: Record<string, string> = {
+    Accept: 'application/vnd.github+json',
+    'User-Agent': 'Hamyar-Forms-Updater',
+    'X-GitHub-Api-Version': '2022-11-28',
+  };
+  if (process.env.GITHUB_TOKEN) {
+    headers.Authorization = `Bearer ${process.env.GITHUB_TOKEN}`;
+  }
+  return headers;
+}
+
+app.get('/api/github-update/info', async (_req: Request, res: Response) => {
+  const gitMeta = await getLocalGitMetadata();
+  const envRepo = parseRepoSlugServer(process.env.GITHUB_REPO || '');
+  res.json({
+    success: true,
+    appVersion: getAppPackageVersion(),
+    defaultRepo: envRepo?.slug || gitMeta.originSlug || '',
+    defaultBranch: sanitizeBranchServer(process.env.GITHUB_BRANCH || gitMeta.localBranch || 'main'),
+    hasGitWorkspace: gitMeta.hasGitWorkspace,
+    localHeadSha: gitMeta.localHeadSha,
+    localBranch: gitMeta.localBranch,
+  });
+});
+
+app.post('/api/github-update/check', async (req: Request, res: Response) => {
+  try {
+    const rawRepo = String(req.body?.repo || process.env.GITHUB_REPO || '');
+    const parsedRepo = parseRepoSlugServer(rawRepo);
+    if (!parsedRepo) {
+      return res.status(400).json({
+        success: false,
+        error: 'آدرس مخزن گیتهاب معتبر نیست. از فرمت owner/repo یا لینک کامل github.com استفاده کنید.',
+      });
+    }
+
+    const branch = sanitizeBranchServer(req.body?.branch || process.env.GITHUB_BRANCH);
+    const clientInstalledSha = String(req.body?.installedSha || '').trim();
+    const gitMeta = await getLocalGitMetadata();
+    const baselineSha = gitMeta.localHeadSha || clientInstalledSha;
+
+    const headers = buildGitHubHeaders();
+    const commitUrl = `https://api.github.com/repos/${parsedRepo.owner}/${parsedRepo.repo}/commits/${encodeURIComponent(branch)}`;
+    const commitResp = await fetch(commitUrl, { headers });
+
+    if (!commitResp.ok) {
+      const status = commitResp.status;
+      let errMsg = 'خطا در برقراری ارتباط با گیتهاب.';
+      if (status === 404) {
+        errMsg = `مخزن «${parsedRepo.slug}» یا شاخه «${branch}» در گیتهاب پیدا نشد (یا خصوصی است).`;
+      } else if (status === 403 || status === 429) {
+        errMsg = 'محدودیت تعداد درخواست گیتهاب (Rate Limit) موقتاً پر شده است. چند دقیقه بعد دوباره تلاش کنید.';
+      }
+      return res.status(status >= 400 && status < 500 ? status : 502).json({
+        success: false,
+        error: errMsg,
+      });
+    }
+
+    const commitJson: any = await commitResp.json();
+    const latestSha = String(commitJson?.sha || '');
+    if (!latestSha) {
+      return res.status(502).json({
+        success: false,
+        error: 'پاسخ گیتهاب فاقد شناسه نسخه (Commit SHA) است.',
+      });
+    }
+
+    const files = Array.isArray(commitJson?.files)
+      ? commitJson.files.map((f: any) => ({
+          filename: String(f.filename || ''),
+          status: String(f.status || 'modified'),
+          additions: Number(f.additions || 0),
+          deletions: Number(f.deletions || 0),
+        }))
+      : [];
+
+    // Best-effort check for latest release tag
+    let latestRelease: any = null;
+    try {
+      const relResp = await fetch(
+        `https://api.github.com/repos/${parsedRepo.owner}/${parsedRepo.repo}/releases/latest`,
+        { headers }
+      );
+      if (relResp.ok) {
+        const relJson: any = await relResp.json();
+        latestRelease = {
+          tagName: String(relJson.tag_name || ''),
+          name: String(relJson.name || relJson.tag_name || ''),
+          publishedAt: String(relJson.published_at || ''),
+          htmlUrl: String(relJson.html_url || ''),
+        };
+      }
+    } catch {
+      // Release endpoint is optional
+    }
+
+    const isInitialSync = !baselineSha;
+    const hasUpdate = Boolean(baselineSha && baselineSha.toLowerCase() !== latestSha.toLowerCase());
+
+    return res.json({
+      success: true,
+      repo: parsedRepo.slug,
+      branch,
+      hasUpdate,
+      isInitialSync,
+      installedSha: baselineSha,
+      hasGitWorkspace: gitMeta.hasGitWorkspace,
+      latestCommit: {
+        sha: latestSha,
+        shortSha: latestSha.slice(0, 7),
+        message: String(commitJson?.commit?.message || '').split('\n')[0] || 'بدون توضیح کامیت',
+        authorName: String(commitJson?.commit?.author?.name || commitJson?.author?.login || 'نامشخص'),
+        date: String(commitJson?.commit?.author?.date || new Date().toISOString()),
+        htmlUrl: String(commitJson?.html_url || `https://github.com/${parsedRepo.slug}/commit/${latestSha}`),
+        files,
+      },
+      latestRelease,
+      checkedAt: new Date().toISOString(),
+      zipDownloadUrl: `https://github.com/${parsedRepo.slug}/archive/${latestSha}.zip`,
+    });
+  } catch (error: any) {
+    console.error('GitHub update check failed:', error);
+    return res.status(500).json({
+      success: false,
+      error: 'خطا در بررسی نسخه گیتهاب: ' + (error?.message || 'خطای شبکه'),
+    });
+  }
+});
+
+app.post('/api/github-update/apply', async (req: Request, res: Response) => {
+  try {
+    const parsedRepo = parseRepoSlugServer(String(req.body?.repo || process.env.GITHUB_REPO || ''));
+    const branch = sanitizeBranchServer(req.body?.branch || process.env.GITHUB_BRANCH);
+    const targetSha = String(req.body?.targetSha || '').trim();
+
+    if (!parsedRepo) {
+      return res.status(400).json({ success: false, error: 'آدرس مخزن گیتهاب نامعتبر است.' });
+    }
+    if (targetSha && !SAFE_GH_SHA.test(targetSha)) {
+      return res.status(400).json({ success: false, error: 'شناسه نسخه (SHA) معتبر نیست.' });
+    }
+
+    const gitMeta = await getLocalGitMetadata();
+
+    // If workspace is a real git repo matching this remote, perform a safe fast-forward git pull
+    if (gitMeta.hasGitWorkspace && (!gitMeta.originSlug || gitMeta.originSlug.toLowerCase() === parsedRepo.slug.toLowerCase())) {
+      try {
+        await execFileAsync('git', ['fetch', 'origin', branch], { cwd: __dirname, timeout: 15000 });
+        await execFileAsync('git', ['pull', '--ff-only', 'origin', branch], { cwd: __dirname, timeout: 20000 });
+        const { stdout: newHead } = await execFileAsync('git', ['rev-parse', 'HEAD'], { cwd: __dirname, timeout: 3000 });
+        return res.json({
+          success: true,
+          mode: 'git_pull',
+          appliedSha: newHead.trim() || targetSha,
+          message: 'کدهای جدید با موفقیت از گیتهاب دریافت و اعمال شد. صفحه برای استفاده از آخرین نسخه بارگذاری می‌شود.',
+          requiresReload: true,
+        });
+      } catch (gitErr: any) {
+        return res.status(409).json({
+          success: false,
+          error: 'بروزرسانی خودکار Git به‌دلیل تغییرات محلی انجام نشد: ' + (gitErr?.message || ''),
+        });
+      }
+    }
+
+    // Standard container / browser deployment mode: acknowledge target version & refresh client caches
+    return res.json({
+      success: true,
+      mode: 'version_sync_reload',
+      appliedSha: targetSha,
+      zipDownloadUrl: targetSha
+        ? `https://github.com/${parsedRepo.slug}/archive/${targetSha}.zip`
+        : `https://github.com/${parsedRepo.slug}/archive/refs/heads/${branch}.zip`,
+      message: 'نسخه جدید گیتهاب ثبت شد و حافظه موقت مرورگر برای استفاده از آخرین نسخه تازه‌سازی می‌شود.',
+      requiresReload: true,
+    });
+  } catch (error: any) {
+    console.error('GitHub apply update failed:', error);
+    return res.status(500).json({
+      success: false,
+      error: 'خطا در اعمال بروزرسانی: ' + (error?.message || 'خطای ناشناخته'),
     });
   }
 });

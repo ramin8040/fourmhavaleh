@@ -10,6 +10,7 @@ import {
   Camera,
   FolderOpen,
   PlusCircle,
+  GitBranch,
 } from 'lucide-react';
 import { ThemeMode } from '../utils/theme';
 import { RibbonTab } from './RibbonBar';
@@ -30,6 +31,8 @@ interface TitleBarProps {
   activeTab?: RibbonTab;
   onTabChange?: (tab: RibbonTab) => void;
   onOpenImageToForm?: () => void;
+  onOpenGitHubUpdate?: () => void;
+  hasGitHubUpdate?: boolean;
 }
 
 export const TitleBar: React.FC<TitleBarProps> = ({
@@ -43,6 +46,8 @@ export const TitleBar: React.FC<TitleBarProps> = ({
   activeTab = 'wizard',
   onTabChange,
   onOpenImageToForm,
+  onOpenGitHubUpdate,
+  hasGitHubUpdate = false,
 }) => {
   const cycleTheme = () => {
     if (!onThemeChange) return;
@@ -126,8 +131,42 @@ export const TitleBar: React.FC<TitleBarProps> = ({
         </nav>
       )}
 
-      {/* Zone 3: Theme Switch & Primary Print Action */}
+      {/* Zone 3: Theme Switch, GitHub Update & Primary Print Action */}
       <div className="flex items-center gap-2 shrink-0">
+        {onOpenGitHubUpdate && (
+          <button
+            type="button"
+            onClick={onOpenGitHubUpdate}
+            data-testid="titlebar-github-update-btn"
+            aria-label={
+              hasGitHubUpdate
+                ? 'نسخه جدید در گیتهاب آماده است — مشاهده و بروزرسانی'
+                : 'بررسی بروزرسانی نرم‌افزار از گیتهاب'
+            }
+            title={
+              hasGitHubUpdate
+                ? 'کد جدید در گیتهاب آماده بروزرسانی است'
+                : 'بروزرسانی از گیتهاب'
+            }
+            className={`relative h-10 sm:h-9 px-2.5 sm:px-3 flex items-center justify-center gap-1.5 rounded-xl text-xs font-semibold transition-colors cursor-pointer shrink-0 whitespace-nowrap ${
+              hasGitHubUpdate
+                ? 'bg-amber-500/18 border border-amber-400/50 text-amber-800 dark:text-amber-200 hover:bg-amber-500/25'
+                : 'liquid-glass-well text-slate-700 dark:text-slate-200 hover:bg-white/80 dark:hover:bg-white/10'
+            }`}
+          >
+            <GitBranch className="w-4 h-4 shrink-0" />
+            <span className="hidden xl:inline">
+              {hasGitHubUpdate ? 'نسخه جدید' : 'بروزرسانی'}
+            </span>
+            {hasGitHubUpdate && (
+              <span
+                aria-hidden="true"
+                className="w-2 h-2 rounded-full bg-amber-500 shrink-0"
+              />
+            )}
+          </button>
+        )}
+
         {onThemeChange && (
           <button
             type="button"

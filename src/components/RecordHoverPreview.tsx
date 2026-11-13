@@ -1,4 +1,5 @@
 import React, { useLayoutEffect, useRef, useState, useMemo } from 'react';
+import { createPortal } from 'react-dom';
 import { FormRecord, FormTemplate } from '../types/form';
 import {
   extractRecordPreviewData,
@@ -79,14 +80,16 @@ export const RecordHoverPreview: React.FC<RecordHoverPreviewProps> = ({
     setCoords({ top, left });
   }, [anchorRect, preview]);
 
-  return (
+  if (typeof document === 'undefined') return null;
+
+  return createPortal(
     <div
       ref={cardRef}
       role="tooltip"
       data-testid="record-hover-preview"
       dir="rtl"
-      style={{ top: `${coords.top}px`, left: `${coords.left}px` }}
-      className="fixed z-50 w-[440px] max-w-[92vw] pointer-events-none liquid-glass-elevated rounded-3xl overflow-hidden text-xs text-slate-800 dark:text-slate-100 transition-opacity duration-150"
+      style={{ top: `${coords.top}px`, left: `${coords.left}px`, zIndex: 9995 }}
+      className="fixed w-[440px] max-w-[92vw] pointer-events-none liquid-glass-elevated bg-white/95 dark:bg-slate-900/95 shadow-2xl rounded-3xl overflow-hidden text-xs text-slate-800 dark:text-slate-100 transition-opacity duration-150"
     >
       {/* 1. Compact Header */}
       <div className="px-4 py-3 bg-white/45 dark:bg-slate-900/45 border-b border-slate-300/40 dark:border-white/10 flex items-center justify-between gap-3">
@@ -251,6 +254,7 @@ export const RecordHoverPreview: React.FC<RecordHoverPreviewProps> = ({
           </span>
         </div>
       </div>
-    </div>
+    </div>,
+    document.body
   );
 };

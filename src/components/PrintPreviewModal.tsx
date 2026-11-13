@@ -11,7 +11,8 @@ import {
   FileText, 
   Check, 
   Eye, 
-  Download 
+  Download,
+  FileDown
 } from 'lucide-react';
 import { FormCanvas } from './FormCanvas';
 
@@ -23,6 +24,8 @@ interface PrintPreviewModalProps {
   tableData: Record<string, TableItemRow[]>;
   signatureData: Record<string, string>;
   onTriggerPrint: (settings: PrintSettings) => void;
+  onExportPdf?: (settings: PrintSettings) => void;
+  isExportingPdf?: boolean;
 }
 
 export const PrintPreviewModal: React.FC<PrintPreviewModalProps> = ({
@@ -33,6 +36,8 @@ export const PrintPreviewModal: React.FC<PrintPreviewModalProps> = ({
   tableData,
   signatureData,
   onTriggerPrint,
+  onExportPdf,
+  isExportingPdf = false,
 }) => {
   const [printSettings, setPrintSettings] = useState<PrintSettings>({
     paperSize: template.paperSize,
@@ -81,6 +86,19 @@ export const PrintPreviewModal: React.FC<PrintPreviewModalProps> = ({
         </div>
 
         <div className="flex items-center gap-2 sm:gap-3 shrink-0">
+          {onExportPdf && (
+            <button
+              type="button"
+              data-testid="modal-export-pdf-btn"
+              disabled={isExportingPdf}
+              onClick={() => onExportPdf(printSettings)}
+              className="h-10 flex items-center gap-1.5 px-3.5 sm:px-4 liquid-glass-well border border-rose-400/40 bg-rose-500/12 hover:bg-rose-500/20 text-rose-700 dark:text-rose-200 rounded-2xl font-bold text-xs sm:text-sm disabled:opacity-50 transition-colors cursor-pointer whitespace-nowrap"
+            >
+              <FileDown className="w-4 h-4" />
+              <span>{isExportingPdf ? 'در حال ساخت...' : 'خروجی PDF'}</span>
+            </button>
+          )}
+
           <button
             onClick={handlePrint}
             className="h-10 flex items-center gap-1.5 px-4 sm:px-5 liquid-cta rounded-2xl font-bold text-xs sm:text-sm cursor-pointer"

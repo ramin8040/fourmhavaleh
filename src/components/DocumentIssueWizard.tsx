@@ -51,6 +51,7 @@ import {
   ChevronUp,
   ClipboardList,
   FileCheck2,
+  FileDown,
   FilePlus2,
   FileSpreadsheet,
   FileText,
@@ -87,6 +88,8 @@ interface DocumentIssueWizardProps {
   onSignatureDataChange: (fieldId: string, dataUrl: string) => void;
   onSaveRecordToArchive: () => FormRecord;
   onTriggerPrint: (settings: PrintSettings) => void;
+  onExportPdf?: (settings: PrintSettings) => void;
+  isExportingPdf?: boolean;
   onStartNewWizard: () => void;
   onSwitchToClassicCanvas: () => void;
   onOpenImageToForm?: () => void;
@@ -128,6 +131,8 @@ export const DocumentIssueWizard: React.FC<DocumentIssueWizardProps> = ({
   onSignatureDataChange,
   onSaveRecordToArchive,
   onTriggerPrint,
+  onExportPdf,
+  isExportingPdf = false,
   onStartNewWizard,
   onSwitchToClassicCanvas,
   onOpenImageToForm,
@@ -1474,6 +1479,19 @@ export const DocumentIssueWizard: React.FC<DocumentIssueWizardProps> = ({
                 <Printer className="w-5 h-5" />
                 <span>چاپ برگه</span>
               </button>
+
+              {onExportPdf && (
+                <button
+                  type="button"
+                  data-testid="wizard-export-pdf-btn"
+                  disabled={isExportingPdf}
+                  onClick={() => onExportPdf(printSettings)}
+                  className="w-full h-11 px-4 rounded-2xl liquid-glass-well border border-rose-400/40 bg-rose-500/12 hover:bg-rose-500/20 text-rose-700 dark:text-rose-200 text-xs sm:text-sm font-bold flex items-center justify-center gap-2 disabled:opacity-50 transition-colors cursor-pointer"
+                >
+                  <FileDown className="w-4 h-4" />
+                  <span>{isExportingPdf ? 'در حال ساخت PDF...' : 'دانلود فایل PDF'}</span>
+                </button>
+              )}
 
               <button
                 type="button"

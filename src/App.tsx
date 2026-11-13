@@ -53,8 +53,17 @@ import { ImageToFormModal } from './components/ImageToFormModal';
 import { KeyboardShortcutsModal } from './components/KeyboardShortcutsModal';
 import { OfficialPrintDocument } from './components/OfficialPrintDocument';
 import { DocumentIssueWizard } from './components/DocumentIssueWizard';
+import { PdfExportHost, PdfExportJob } from './components/PdfExportHost';
+import { GitHubUpdateModal } from './components/GitHubUpdateModal';
+import { buildPdfFileName } from './utils/pdfExport';
+import {
+  GitHubUpdateCheckResult,
+  GitHubUpdateConfig,
+  loadGitHubUpdateConfig,
+  saveGitHubUpdateConfig,
+} from './utils/githubUpdate';
 import { WizardStep, initializeWizardDataForTemplate } from './utils/wizardLogic';
-import { CheckCircle2 } from 'lucide-react';
+import { CheckCircle2, ArrowUpCircle, X } from 'lucide-react';
 
 export default function App() {
   // Theme Mode (Windows 11 Fluent Dark / Light / System)
@@ -92,12 +101,25 @@ export default function App() {
   const [lastSavedText, setLastSavedText] = useState('ذخیره‌شده');
   const [toastMessage, setToastMessage] = useState<string | null>(null);
 
-  const showToast = (msg: string) => {
+  // PDF Export Job state
+  const [pdfExportJob, setPdfExportJob] = useState<PdfExportJob | null>(null);
+
+  // GitHub Repository Update Check & Notification state
+  const [isGitHubUpdateModalOpen, setIsGitHubUpdateModalOpen] = useState(false);
+  const [gitHubConfig, setGitHubConfig] = useState<GitHubUpdateConfig>(loadGitHubUpdateConfig);
+  const [appVersion, setAppVersion] = useState<string>('1.0.0');
+  const [gitHubCheckResult, setGitHubCheckResult] = useState<GitHubUpdateCheckResult | null>(null);
+  const [isCheckingGitHub, setIsCheckingGitHub] = useState(false);
+  const [isApplyingGitHub, setIsApplyingGitHub] = useState(false);
+  const [gitHubError, setGitHubError] = useState<string | null>(null);
+  const [isUpdateBannerDismissed, setIsUpdateBannerDismissed] = useState(false);
+
+  const showToast = useCallback((msg: string) => {
     setToastMessage(msg);
     setTimeout(() => {
       setToastMessage(null);
     }, 3000);
-  };
+  }, []);
 
   // Sync and listen to theme mode changes (System / Light / Dark)
   useEffect(() => {
@@ -723,6 +745,288 @@ export default function App() {
     handleStartNewWizard();
   };
 
+  // PDF EXPORT HANDLERS
+  const handleExportCurrentPdf = useCallback(
+    (settings?: PrintSettings) => {
+      if (pdfExportJob) return;
+      const effectiveSettings: PrintSettings = settings || {
+        paperSize: activeTemplate.paperSize,
+        orientation: activeTemplate.orientation,
+        showWatermark: activeTemplate.showWatermark ?? false,
+        watermarkText: activeTemplate.watermarkText || 'محرمانه',
+        highContrastMode: false,
+        showPageNumbers: true,
+        printMode: 'filled',
+        scale: 1,
+      };
+      const docNum =
+        formData['f_doc_no'] ||
+        activeTemplate.fields.find((f) => f.documentNumber)?.documentNumber ||
+        '1';
+      const rec = currentRecordId ? records.find((r) => r.id === currentRecordId) : undefined;
+      const fileName = buildPdfFileName(activeTemplate.title, String(docNum), rec?.recordNumber);
+
+      setPdfExportJob({
+        id: `pdf_${Date.now()}`,
+        template: activeTemplate,
+        formData,
+        tableData,
+        signatureData,
+        printSettings: effectiveSettings,
+        fileName,
+      });
+    },
+    [pdfExportJob, activeTemplate, formData, tableData, signatureData, currentRecordId, records]
+  );
+
+  const handleExportRecordPdf = useCallback(
+    (record: FormRecord) => {
+      if (pdfExportJob) return;
+      const matchedTemplate = templates.find((t) => t.id === record.formId) || activeTemplate;
+      const docNum =
+        record.data?.['f_doc_no'] ||
+        matchedTemplate.fields.find((f) => f.documentNumber)?.documentNumber ||
+        '';
+      const fileName = buildPdfFileName(matchedTemplate.title, String(docNum), record.recordNumber);
+
+      setPdfExportJob({
+        id: `pdf_rec_${record.id}_${Date.now()}`,
+        template: matchedTemplate,
+        formData: record.data || {},
+        tableData: record.tableData || {},
+        signatureData: record.signatureData || {},
+        printSettings: {
+          paperSize: matchedTemplate.paperSize,
+          orientation: matchedTemplate.orientation,
+          showWatermark: matchedTemplate.showWatermark ?? false,
+          watermarkText: matchedTemplate.watermarkText || 'محرمانه',
+          highContrastMode: false,
+          showPageNumbers: true,
+          printMode: 'filled',
+          scale: 1,
+        },
+        fileName,
+      });
+    },
+    [pdfExportJob, templates, activeTemplate]
+  );
+
+  // GITHUB UPDATE CHECK & APPLY HANDLERS
+  const performGitHubUpdateCheck = useCallback(
+    async (
+      repoInput: string,
+      branch: string,
+      installedSha: string,
+      autoCheckFlag: boolean,
+      quiet = false
+    ) => {
+      if (!repoInput.trim()) return;
+      setIsCheckingGitHub(true);
+      setGitHubError(null);
+      try {
+        const resp = await fetch('/api/github-update/check', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            repo: repoInput.trim(),
+            branch: branch.trim() || 'main',
+            installedSha,
+          }),
+        });
+        const data = await resp.json();
+        if (!resp.ok || !data?.success) {
+          throw new Error(data?.error || 'بررسی مخزن گیتهاب ناموفق بود.');
+        }
+
+        const result = data as GitHubUpdateCheckResult;
+        setGitHubCheckResult(result);
+
+        const nextConfig: GitHubUpdateConfig = {
+          repoInput: result.repo,
+          branch: result.branch,
+          autoCheck: autoCheckFlag,
+          installedSha: result.installedSha || installedSha,
+          lastCheckedAt: result.checkedAt,
+          lastKnownRemoteSha: result.latestCommit.sha,
+        };
+        setGitHubConfig(nextConfig);
+        saveGitHubUpdateConfig(nextConfig);
+
+        if (result.hasUpdate) {
+          setIsUpdateBannerDismissed(false);
+          if (!quiet) {
+            showToast('کد جدید در مخزن گیتهاب شناسایی شد! آماده بروزرسانی است.');
+          }
+        } else if (!quiet) {
+          showToast('نسخه مخزن گیتهاب بررسی شد.');
+        }
+      } catch (err: any) {
+        if (!quiet) {
+          setGitHubError(err?.message || 'خطا در بررسی بروزرسانی گیتهاب.');
+        }
+      } finally {
+        setIsCheckingGitHub(false);
+      }
+    },
+    [showToast]
+  );
+
+  useEffect(() => {
+    let cancelled = false;
+    const bootstrapUpdates = async () => {
+      try {
+        const res = await fetch('/api/github-update/info');
+        if (!res.ok) return;
+        const info = await res.json();
+        if (cancelled || !info?.success) return;
+
+        if (info.appVersion) setAppVersion(String(info.appVersion));
+
+        const currentCfg = loadGitHubUpdateConfig();
+        const effectiveRepo = currentCfg.repoInput || info.defaultRepo || '';
+        const effectiveBranch = currentCfg.branch || info.defaultBranch || 'main';
+        const effectiveSha = info.localHeadSha || currentCfg.installedSha || '';
+
+        const merged: GitHubUpdateConfig = {
+          ...currentCfg,
+          repoInput: effectiveRepo,
+          branch: effectiveBranch,
+          installedSha: effectiveSha,
+        };
+        setGitHubConfig(merged);
+        saveGitHubUpdateConfig(merged);
+
+        if (effectiveRepo && merged.autoCheck) {
+          await performGitHubUpdateCheck(effectiveRepo, effectiveBranch, effectiveSha, merged.autoCheck, true);
+        }
+      } catch {
+        // Ignore offline startup info check errors
+      }
+    };
+    bootstrapUpdates();
+    return () => {
+      cancelled = true;
+    };
+  }, [performGitHubUpdateCheck]);
+
+  // Periodic background check every 5 minutes when autoCheck & repo are configured
+  useEffect(() => {
+    if (!gitHubConfig.autoCheck || !gitHubConfig.repoInput.trim()) return;
+    const intervalId = window.setInterval(() => {
+      performGitHubUpdateCheck(
+        gitHubConfig.repoInput,
+        gitHubConfig.branch,
+        gitHubConfig.installedSha,
+        gitHubConfig.autoCheck,
+        true
+      );
+    }, 5 * 60 * 1000);
+    return () => window.clearInterval(intervalId);
+  }, [
+    gitHubConfig.autoCheck,
+    gitHubConfig.repoInput,
+    gitHubConfig.branch,
+    gitHubConfig.installedSha,
+    performGitHubUpdateCheck,
+  ]);
+
+  const handleSaveAndCheckGitHub = async (
+    repoInput: string,
+    branch: string,
+    autoCheckFlag: boolean
+  ) => {
+    const nextCfg: GitHubUpdateConfig = {
+      ...gitHubConfig,
+      repoInput,
+      branch,
+      autoCheck: autoCheckFlag,
+    };
+    setGitHubConfig(nextCfg);
+    saveGitHubUpdateConfig(nextCfg);
+    await performGitHubUpdateCheck(repoInput, branch, nextCfg.installedSha, autoCheckFlag, false);
+  };
+
+  const handleAcknowledgeBaseline = (sha: string) => {
+    const updatedCfg: GitHubUpdateConfig = {
+      ...gitHubConfig,
+      installedSha: sha,
+      lastKnownRemoteSha: sha,
+      lastCheckedAt: new Date().toISOString(),
+    };
+    setGitHubConfig(updatedCfg);
+    saveGitHubUpdateConfig(updatedCfg);
+    if (gitHubCheckResult) {
+      setGitHubCheckResult({
+        ...gitHubCheckResult,
+        installedSha: sha,
+        hasUpdate: false,
+        isInitialSync: false,
+      });
+    }
+    setIsUpdateBannerDismissed(true);
+    showToast('نسخه فعلی کد ثبت شد؛ با تغییر کد در گیتهاب به شما اعلان داده می‌شود.');
+  };
+
+  const handleApplyGitHubUpdate = async () => {
+    if (!gitHubCheckResult) return;
+    setIsApplyingGitHub(true);
+    setGitHubError(null);
+    try {
+      const resp = await fetch('/api/github-update/apply', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          repo: gitHubCheckResult.repo,
+          branch: gitHubCheckResult.branch,
+          targetSha: gitHubCheckResult.latestCommit.sha,
+        }),
+      });
+      const data = await resp.json();
+      if (!resp.ok || !data?.success) {
+        throw new Error(data?.error || 'اعمال بروزرسانی ناموفق بود.');
+      }
+
+      const appliedSha = data.appliedSha || gitHubCheckResult.latestCommit.sha;
+      const updatedCfg: GitHubUpdateConfig = {
+        ...gitHubConfig,
+        installedSha: appliedSha,
+        lastKnownRemoteSha: appliedSha,
+        lastCheckedAt: new Date().toISOString(),
+      };
+      setGitHubConfig(updatedCfg);
+      saveGitHubUpdateConfig(updatedCfg);
+      setGitHubCheckResult({
+        ...gitHubCheckResult,
+        installedSha: appliedSha,
+        hasUpdate: false,
+        isInitialSync: false,
+      });
+      setIsUpdateBannerDismissed(true);
+      setIsGitHubUpdateModalOpen(false);
+      showToast(data.message || 'نرم‌افزار به آخرین نسخه بروزرسانی شد.');
+
+      // Clear browser caches if supported so user runs the latest bundle on reload
+      if (typeof window !== 'undefined' && 'caches' in window) {
+        try {
+          const keys = await window.caches.keys();
+          await Promise.all(keys.map((k) => window.caches.delete(k)));
+        } catch {
+          // Ignore cache API restrictions
+        }
+      }
+
+      if (data.requiresReload && typeof window !== 'undefined') {
+        setTimeout(() => {
+          window.location.reload();
+        }, 700);
+      }
+    } catch (err: any) {
+      setGitHubError(err?.message || 'خطا در بروزرسانی نرم‌افزار.');
+    } finally {
+      setIsApplyingGitHub(false);
+    }
+  };
+
   // EXPORT / BACKUP HANDLERS
   const handleExportCsv = () => {
     if (records.length === 0) {
@@ -802,6 +1106,8 @@ export default function App() {
           setMobileDesignPanel('none');
         }}
         onOpenImageToForm={() => setIsImageToFormModalOpen(true)}
+        onOpenGitHubUpdate={() => setIsGitHubUpdateModalOpen(true)}
+        hasGitHubUpdate={Boolean(gitHubCheckResult?.hasUpdate)}
       />
 
       {/* Main Layout Container: Vertical Sidebar (Right in RTL) + Main Workspace (Left) */}
@@ -834,6 +1140,8 @@ export default function App() {
           }}
           onSaveRecord={handleSaveRecord}
           onQuickPrint={() => handleDirectPrint()}
+          onExportPdf={() => handleExportCurrentPdf()}
+          isExportingPdf={Boolean(pdfExportJob)}
           onPreviewPrint={() => setIsPrintModalOpen(true)}
           onNewVoucher={handleNewRecord}
           onResetCanvas={handleResetToBlank}
@@ -854,6 +1162,8 @@ export default function App() {
           onSaveActiveTemplate={handleSaveActiveTemplate}
           onDuplicateActiveTemplate={handleDuplicateActiveTemplate}
           onDeleteActiveTemplate={handleDeleteActiveTemplate}
+          onOpenGitHubUpdate={() => setIsGitHubUpdateModalOpen(true)}
+          hasGitHubUpdate={Boolean(gitHubCheckResult?.hasUpdate)}
           recordsCount={records.length}
           themeMode={themeMode}
           onThemeChange={handleThemeChange}
@@ -868,6 +1178,44 @@ export default function App() {
 
         {/* Central Workspace & Context Column */}
         <div className="flex-1 flex flex-col overflow-hidden min-w-0 lg:m-3 lg:rounded-3xl liquid-glass">
+          {/* Live GitHub Code-Change Update Notification Banner */}
+          {gitHubCheckResult?.hasUpdate && !isUpdateBannerDismissed && (
+            <div
+              role="alert"
+              data-testid="github-update-banner"
+              className="px-3 sm:px-5 py-2.5 bg-amber-500/15 dark:bg-amber-400/15 border-b border-amber-400/40 flex flex-wrap items-center justify-between gap-2 text-xs text-slate-900 dark:text-slate-100 shrink-0"
+            >
+              <div className="flex items-center gap-2 min-w-0">
+                <ArrowUpCircle className="w-4 h-4 text-amber-600 dark:text-amber-300 shrink-0" />
+                <span className="font-bold truncate">
+                  نسخه جدید نرم‌افزار در گیتهاب منتشر شد ({gitHubCheckResult.latestCommit.shortSha})
+                </span>
+                <span className="hidden md:inline text-slate-600 dark:text-slate-300 truncate">
+                  · {gitHubCheckResult.latestCommit.message}
+                </span>
+              </div>
+
+              <div className="flex items-center gap-2 shrink-0">
+                <button
+                  type="button"
+                  data-testid="github-banner-open-btn"
+                  onClick={() => setIsGitHubUpdateModalOpen(true)}
+                  className="h-8 px-3 rounded-xl liquid-cta-success text-xs font-bold cursor-pointer whitespace-nowrap"
+                >
+                  بروزرسانی به آخرین نسخه
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setIsUpdateBannerDismissed(true)}
+                  aria-label="بستن اعلان بروزرسانی"
+                  className="w-8 h-8 rounded-xl liquid-glass-well flex items-center justify-center text-slate-600 dark:text-slate-300 hover:text-slate-900 dark:hover:text-white cursor-pointer"
+                >
+                  <X className="w-3.5 h-3.5" />
+                </button>
+              </div>
+            </div>
+          )}
+
           {/* Top Context & Specs Bar (shown only in classic canvas & design views) */}
           {(activeTab === 'fill' || activeTab === 'design') && (
             <CanvasTopBar
@@ -911,6 +1259,8 @@ export default function App() {
               lastAutoSavedTime={lastAutoSavedTime}
               isAutoSaving={isAutoSaving}
               onQuickPrint={() => handleDirectPrint()}
+              onExportPdf={() => handleExportCurrentPdf()}
+              isExportingPdf={Boolean(pdfExportJob)}
               onOpenShortcuts={() => setIsShortcutsModalOpen(true)}
               mobileDesignPanel={mobileDesignPanel}
               onToggleMobileDesignPanel={(panel) =>
@@ -930,6 +1280,8 @@ export default function App() {
             onLoadRecord={handleLoadRecord}
             onDeleteRecord={handleDeleteRecord}
             onPrintRecord={handlePrintRecord}
+            onExportRecordPdf={handleExportRecordPdf}
+            isExportingPdf={Boolean(pdfExportJob)}
             onExportCsv={handleExportCsv}
             onExportBackup={handleExportBackup}
             onImportBackupFile={handleImportBackupFile}
@@ -963,6 +1315,8 @@ export default function App() {
                 window.print();
               }, 150);
             }}
+            onExportPdf={(settings) => handleExportCurrentPdf(settings)}
+            isExportingPdf={Boolean(pdfExportJob)}
             onStartNewWizard={handleStartNewWizard}
             onSwitchToClassicCanvas={() => {
               setIsFillMode(true);
@@ -974,8 +1328,8 @@ export default function App() {
         ) : (
           /* VIEW 2: Visual Designer / Form Canvas */
           <>
-            {/* Mobile / Tablet backdrop for Design mode drawers */}
-            {!isFillMode && mobileDesignPanel !== 'none' && (
+            {/* Mobile / Tablet backdrop for Design toolbox drawer */}
+            {!isFillMode && mobileDesignPanel === 'toolbox' && (
               <div
                 aria-hidden="true"
                 onClick={() => setMobileDesignPanel('none')}
@@ -1057,6 +1411,33 @@ export default function App() {
         onTriggerPrint={(settings) => {
           setActivePrintSettings(settings);
         }}
+        onExportPdf={(settings) => handleExportCurrentPdf(settings)}
+        isExportingPdf={Boolean(pdfExportJob)}
+      />
+
+      <GitHubUpdateModal
+        isOpen={isGitHubUpdateModalOpen}
+        onClose={() => setIsGitHubUpdateModalOpen(false)}
+        config={gitHubConfig}
+        appVersion={appVersion}
+        checkResult={gitHubCheckResult}
+        isChecking={isCheckingGitHub}
+        isApplying={isApplyingGitHub}
+        errorMessage={gitHubError}
+        onSaveAndCheck={handleSaveAndCheckGitHub}
+        onApplyUpdate={handleApplyGitHubUpdate}
+        onAcknowledgeBaseline={handleAcknowledgeBaseline}
+      />
+
+      <PdfExportHost
+        job={pdfExportJob}
+        onSuccess={(fileName) => {
+          showToast(`فایل PDF با نام «${fileName}» ساخته و دانلود شد.`);
+        }}
+        onError={(errMsg) => {
+          showToast(errMsg);
+        }}
+        onFinish={() => setPdfExportJob(null)}
       />
 
       <TemplatesModal

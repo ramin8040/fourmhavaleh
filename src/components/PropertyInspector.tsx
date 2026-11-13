@@ -1,4 +1,5 @@
 import React, { useState } from 'react';
+import { createPortal } from 'react-dom';
 import { 
   FormField, 
   FieldWidth,
@@ -56,19 +57,37 @@ export const PropertyInspector: React.FC<PropertyInspectorProps> = ({
 }) => {
   const [activeTab, setActiveTab] = useState<'settings' | 'style' | 'columns'>('settings');
 
-  const drawerClass = `fixed inset-y-0 left-0 z-40 w-80 max-w-[88vw] lg:static lg:relative lg:z-auto liquid-glass-elevated border-r border-white/60 dark:border-white/10 flex flex-col shrink-0 select-none shadow-2xl lg:shadow-none transition-transform duration-200 lg:translate-x-0 lg:pointer-events-auto ${
-    isMobileOpen ? 'translate-x-0 pointer-events-auto' : '-translate-x-full pointer-events-none'
-  }`;
+  const desktopAsideClass =
+    'hidden lg:flex relative z-30 w-80 liquid-glass-elevated border-r border-white/60 dark:border-white/10 flex-col shrink-0 select-none overflow-y-auto';
+
+  const mobileAsideClass =
+    'fixed inset-y-0 left-0 z-[9990] lg:hidden w-80 max-w-[88vw] liquid-glass-elevated bg-white/95 dark:bg-slate-900/95 border-r border-white/60 dark:border-white/10 flex flex-col shrink-0 select-none overflow-y-auto shadow-2xl';
+
+  const renderMobileDrawer = (content: React.ReactNode) => {
+    if (!isMobileOpen || typeof document === 'undefined') return null;
+    return createPortal(
+      <>
+        <div
+          aria-hidden="true"
+          onClick={onCloseMobile}
+          style={{ zIndex: 9980 }}
+          className="fixed inset-0 bg-slate-950/50 backdrop-blur-xs lg:hidden"
+        />
+        {content}
+      </>,
+      document.body
+    );
+  };
 
   if (!field) {
-    return (
-      <aside className={`${drawerClass} p-5 text-center justify-center text-slate-500 dark:text-slate-400`}>
+    const emptyInner = (
+      <>
         {onCloseMobile && (
           <button
             type="button"
             onClick={onCloseMobile}
             aria-label="بستن پنل تنظیمات"
-            className="lg:hidden absolute top-3 left-3 p-1.5 rounded-xl text-slate-500 hover:bg-white/75 dark:hover:bg-white/10"
+            className="lg:hidden absolute top-3 left-3 z-20 p-1.5 rounded-xl text-slate-500 hover:bg-white/75 dark:hover:bg-white/10 cursor-pointer"
           >
             <X className="w-4 h-4" />
           </button>
@@ -78,7 +97,27 @@ export const PropertyInspector: React.FC<PropertyInspectorProps> = ({
         <span className="text-[11px] text-slate-500 dark:text-slate-400 mt-1 leading-relaxed">
           روی هر بخش از برگه بزنید تا بتوانید اسم، اندازه یا ستون‌هایش را عوض کنید.
         </span>
-      </aside>
+      </>
+    );
+
+    return (
+      <>
+        <aside
+          data-testid="property-inspector-desktop"
+          className={`${desktopAsideClass} p-5 text-center justify-center text-slate-500 dark:text-slate-400`}
+        >
+          {emptyInner}
+        </aside>
+        {renderMobileDrawer(
+          <aside
+            data-testid="property-inspector-mobile"
+            dir="rtl"
+            className={`${mobileAsideClass} p-5 text-center justify-center text-slate-500 dark:text-slate-400`}
+          >
+            {emptyInner}
+          </aside>
+        )}
+      </>
     );
   }
 
@@ -209,10 +248,10 @@ export const PropertyInspector: React.FC<PropertyInspectorProps> = ({
     }
   };
 
-  return (
-    <aside className={`${drawerClass} overflow-y-auto`}>
-      {/* Inspector Header */}
-      <div className="p-3 border-b border-[#e5e7eb] dark:border-[#2d2d2d] bg-[#f3f4f6] dark:bg-[#1a1a1a] flex items-center justify-between sticky top-0 z-10 backdrop-blur-md">
+  const inspectorInner = (
+    <>
+      {/* Inspector Header (Sticky above scrolled body) */}
+      <div className="p-3 border-b border-slate-200 dark:border-[#2d2d2d] bg-white/95 dark:bg-[#1a1a1a]/95 flex items-center justify-between sticky top-0 z-30 backdrop-blur-md">
         <div className="flex items-center gap-2 min-w-0">
           <Sliders className="w-3.5 h-3.5 text-[#0067C0] dark:text-[#4cc2ff] shrink-0" />
           <div className="min-w-0">
@@ -225,8 +264,15 @@ export const PropertyInspector: React.FC<PropertyInspectorProps> = ({
           </div>
         </div>
         <button
-          onClick={onClose}
-          className="p-1 rounded hover:bg-slate-200 dark:hover:bg-white/10 text-slate-500 dark:text-slate-400 transition-colors"
+          type="button"
+          onClick={() => {
+            if (isMobileOpen && onCloseMobile) {
+              onCloseMobile();
+            } else {
+              onClose();
+            }
+          }}
+          className="p-1 rounded hover:bg-slate-200 dark:hover:bg-white/10 text-slate-500 dark:text-slate-400 transition-colors cursor-pointer"
           title="بستن پنل"
         >
           <X className="w-3.5 h-3.5" />
@@ -234,7 +280,7 @@ export const PropertyInspector: React.FC<PropertyInspectorProps> = ({
       </div>
 
       {/* Quick Action Toolbar (Move, Duplicate, Delete) */}
-      <div className="px-3 pt-3">
+      <div className="relative z-20 px-3 pt-3">
         <div className="flex items-center justify-between bg-white dark:bg-[#282828] p-1 rounded-md border border-slate-200 dark:border-[#383838] shadow-2xs">
           <div className="flex items-center gap-1">
             <button
@@ -274,7 +320,7 @@ export const PropertyInspector: React.FC<PropertyInspectorProps> = ({
 
       {/* Tabs if Table */}
       {field.type === 'table' && (
-        <div className="px-3 pt-3">
+        <div className="relative z-20 px-3 pt-3">
           <div className="grid grid-cols-3 border-b border-slate-200 dark:border-[#383838] text-[11px]">
             <button
               type="button"
@@ -314,7 +360,7 @@ export const PropertyInspector: React.FC<PropertyInspectorProps> = ({
       )}
 
       {/* Content Form */}
-      <div className="p-3 space-y-4 text-xs">
+      <div className="relative z-10 p-3 space-y-4 text-xs">
         {/* ========================================================
             TAB: EXCEL TABLE BORDERS, COLORS & STYLE
             ======================================================== */}
@@ -1340,6 +1386,23 @@ export const PropertyInspector: React.FC<PropertyInspectorProps> = ({
           </>
         )}
       </div>
-    </aside>
+    </>
+  );
+
+  return (
+    <>
+      <aside data-testid="property-inspector-desktop" className={desktopAsideClass}>
+        {inspectorInner}
+      </aside>
+      {renderMobileDrawer(
+        <aside
+          data-testid="property-inspector-mobile"
+          dir="rtl"
+          className={mobileAsideClass}
+        >
+          {inspectorInner}
+        </aside>
+      )}
+    </>
   );
 };

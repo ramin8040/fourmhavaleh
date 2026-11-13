@@ -271,7 +271,7 @@ export const FormCanvas: React.FC<FormCanvasProps> = ({
   };
 
   return (
-    <div className="flex-1 flex flex-col relative overflow-hidden bg-slate-200/35 dark:bg-slate-950/40 transition-colors">
+    <div className="flex-1 flex flex-col relative z-10 overflow-hidden bg-slate-200/35 dark:bg-slate-950/40 transition-colors">
       <div className="flex-1 overflow-auto p-3 sm:p-4 md:p-8 flex justify-center items-start designer-grid-pattern relative">
       {/* Layout footprint wrapper preventing horizontal overflow when paper is scaled */}
       <div

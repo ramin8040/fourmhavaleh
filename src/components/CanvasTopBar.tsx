@@ -11,7 +11,8 @@ import {
   Printer,
   Keyboard,
   Wrench,
-  Sliders
+  Sliders,
+  FileDown
 } from 'lucide-react';
 import { toPersianDigits } from '../utils/formLogic';
 
@@ -33,6 +34,8 @@ interface CanvasTopBarProps {
   lastAutoSavedTime?: string | null;
   isAutoSaving?: boolean;
   onQuickPrint?: () => void;
+  onExportPdf?: () => void;
+  isExportingPdf?: boolean;
   onOpenShortcuts?: () => void;
   mobileDesignPanel?: 'none' | 'toolbox' | 'inspector';
   onToggleMobileDesignPanel?: (panel: 'toolbox' | 'inspector') => void;
@@ -48,6 +51,8 @@ export const CanvasTopBar: React.FC<CanvasTopBarProps> = ({
   onOrientationChange,
   documentNumber = '۱',
   onQuickPrint,
+  onExportPdf,
+  isExportingPdf = false,
   onOpenShortcuts,
   mobileDesignPanel = 'none',
   onToggleMobileDesignPanel,
@@ -167,6 +172,20 @@ export const CanvasTopBar: React.FC<CanvasTopBarProps> = ({
             title="میانبرهای صفحه‌کلید"
           >
             <Keyboard className="w-4 h-4" />
+          </button>
+        )}
+
+        {onExportPdf && (
+          <button
+            type="button"
+            data-testid="canvas-export-pdf-btn"
+            disabled={isExportingPdf}
+            onClick={onExportPdf}
+            className="h-8 px-2.5 rounded-xl liquid-glass-well border border-rose-400/35 bg-rose-500/10 hover:bg-rose-500/20 text-rose-700 dark:text-rose-200 font-bold text-xs flex items-center gap-1 disabled:opacity-50 cursor-pointer whitespace-nowrap"
+            title="خروجی PDF فرم"
+          >
+            <FileDown className="w-3.5 h-3.5" />
+            <span>PDF</span>
           </button>
         )}
 
